@@ -1,0 +1,82 @@
+name: castpa
+description: "Castpa - Personal content publishing app for solo creators."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Database
+  drift: ^2.23.1
+  drift_flutter: ^0.2.4
+  sqlite3_flutter_libs: ^0.5.30
+
+  # Navigation
+  go_router: ^14.6.3
+
+  # Utilities
+  uuid: ^4.5.1
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  file_picker: ^8.1.7
+  shared_preferences: ^2.3.5
+
+  # Local ML inference
+  tflite_flutter: ^0.12.1
+
+  # HTTP / API
+  http: ^1.2.2
+
+  # JSON
+  json_annotation: ^4.9.0
+
+  # URL Launcher (for OAuth)
+  url_launcher: ^6.3.1
+
+  # Formatting
+  intl: ^0.19.0
+
+  permission_handler: ^11.3.1
+
+  # Recording + transcription
+  record: ^6.2.0
+  whisper_flutter_new: ^1.0.1
+
+  # Icons
+  cupertino_icons: ^1.0.8
+  flutter_web_auth_2: ^5.0.2
+  crypto: ^3.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.14
+  drift_dev: ^2.23.1
+  riverpod_generator: ^2.6.1
+  json_serializable: ^6.9.5
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#2563EB"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/

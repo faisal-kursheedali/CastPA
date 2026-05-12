@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter build *)",
+      "Bash(dart analyze *)",
+      "Bash(dart run *)",
+      "Bash(python3 -c \"from PIL import Image, ImageDraw, ImageFont; print\\('PIL ok'\\)\")",
+      "Bash(python3 *)",
+      "Bash(xargs cat *)",
+      "WebSearch",
+      "WebFetch(domain:pub.dev)",
+      "WebFetch(domain:discuss.ai.google.dev)",
+      "Bash(pod install *)",
+      "Bash(curl -L \"https://github.com/tensorflow/flutter-tflite/releases/download/tflite-2.15.0/libtensorflowlite_c-mac.dylib\" -o /tmp/libtensorflowlite_c-mac.dylib)",
+      "Bash(curl -L \"https://github.com/tensorflow/flutter-tflite/releases/download/tflite-2.13.0/libtensorflowlite_c-mac.dylib\" -o /tmp/libtensorflowlite_c-mac.dylib)",
+      "Bash(curl -s \"https://api.github.com/repos/tensorflow/flutter-tflite/releases\")",
+      "Bash(flutter clean *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(flutter emulators *)",
+      "Bash(grep -v \"^Analyzing\\\\|^$\")",
+      "Bash(grep -v \"avoid_print\\\\|^Analyzing\\\\|^$\")",
+      "Bash(grep -v \"avoid_print\\\\|unused_import\\\\|^Analyzing\\\\|^$\")",
+      "Bash(grep -v \"avoid_print\\\\|curly_braces\\\\|^Analyzing\\\\|^$\")",
+      "Bash(grep -v \"avoid_print\\\\|deprecated_member_use\\\\|unnecessary_underscores\\\\|curly_braces\\\\|^Analyzing\\\\|^$\")"
+    ]
+  }
+}

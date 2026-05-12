@@ -1,0 +1,15 @@
+linkedin 1:
+Linkedin (test):
+client id: 78g5x8c09o6ehl
+client secret: WPL_AP1.7Sy6jvjm0TwvdQgp.JglIvA==
+
+linkedin 2:
+client id: 862ajlsaendq4l
+client secret: WPL_AP1.O9EDCXqQKS86J8Hs.rGFe5Q==
+
+Gemini tokens:
+AIzaSyDrh18lOCPXQzYCVrLQMKR16_poxetwoFg
+AIzaSyATtpWrwL6jrIRfagZpL-XRrka6pZOLAVA
+AIzaSyAbHFhMSXPXNuKqa9Xm9daYlgK3CR8E4YY
+main:
+AIzaSyCXlBul_lE_sMyhfwv3keedprn4AyL9nr4
