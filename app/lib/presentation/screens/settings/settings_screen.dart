@@ -326,33 +326,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final srcPath = await bootstrapService.dbPath();
       final destPath = '${config.syncFolderPath}/castpa.db';
       final dir = Directory(config.syncFolderPath!);
-      String actualDestPath = destPath;
       if (!await dir.exists()) {
         try {
           await dir.create(recursive: true);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sync folder not found, creating it...')),
-            );
-          }
         } catch (_) {
-          // Sandbox won't allow creating the folder — fall back to app Documents
-          final appDocs = await getApplicationDocumentsDirectory();
-          actualDestPath = '${appDocs.path}/castpa.db';
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Could not access sync folder — backup saved to app Documents instead',
+                  'Cannot create sync folder at "${config.syncFolderPath}". '
+                  'Please grant folder access and try again.',
                 ),
+                duration: const Duration(seconds: 5),
               ),
             );
           }
+          return;
         }
       }
       // ignore: avoid_print
-      print('[UNLINK] exporting castpa.db → $actualDestPath');
-      await File(srcPath).copy(actualDestPath);
+      print('[UNLINK] exporting castpa.db → $destPath');
+      await File(srcPath).copy(destPath);
     }
 
     // 2. Clear the path in local storage (SharedPreferences)
