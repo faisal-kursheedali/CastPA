@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:castpa/application/notifiers/post_edit_notifier.dart';
 import 'package:castpa/data/services/media_file_service.dart';
 import 'package:castpa/application/notifiers/category_notifier.dart';
@@ -411,13 +412,32 @@ class _MediaSection extends ConsumerWidget {
         );
         return;
       }
-      final mediaItem = await fileService.pickAndSaveFile();
-      if (mediaItem == null) return;
-      final mediaRepo = ref.read(mediaRepositoryProvider);
-      await mediaRepo.addMedia(mediaItem);
-      final currentIds = ref.read(postEditProvider).post.mediaIds;
-      final ids = List<String>.from(currentIds)..add(mediaItem.id);
-      ref.read(postEditProvider.notifier).updateMediaIds(ids);
+      final result = await fileService.pickAndSaveFile();
+      if (!context.mounted) return;
+      switch (result) {
+        case PickFileCancelled():
+          return;
+        case PickFilePermissionDenied(:final isPermanentlyDenied):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isPermanentlyDenied
+                    ? 'Storage permission permanently denied. Enable it in Settings.'
+                    : 'Storage permission denied.',
+              ),
+              action: isPermanentlyDenied
+                  ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
+                  : null,
+            ),
+          );
+          return;
+        case PickFileSuccess(:final item):
+          final mediaRepo = ref.read(mediaRepositoryProvider);
+          await mediaRepo.addMedia(item);
+          final currentIds = ref.read(postEditProvider).post.mediaIds;
+          final ids = List<String>.from(currentIds)..add(item.id);
+          ref.read(postEditProvider.notifier).updateMediaIds(ids);
+      }
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
