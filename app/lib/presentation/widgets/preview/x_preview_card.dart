@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:castpa/data/services/media_file_service.dart';
+import 'package:castpa/presentation/widgets/preview/linkable_text.dart';
 
 class XPreviewCard extends StatelessWidget {
   final String content;
@@ -51,9 +52,10 @@ class XPreviewCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       // Content
-                      Text(
-                        content,
+                      LinkableText(
+                        text: content,
                         style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                        linkStyle: const TextStyle(color: Color(0xFF1D9BF0), fontSize: 14, height: 1.4),
                       ),
                       // Tags
                       if (tags.isNotEmpty) ...[

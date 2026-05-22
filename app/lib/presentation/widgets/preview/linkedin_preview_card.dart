@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:castpa/data/services/media_file_service.dart';
+import 'package:castpa/presentation/widgets/preview/linkable_text.dart';
 
 class LinkedInPreviewCard extends StatelessWidget {
   final String content;
@@ -56,9 +57,10 @@ class LinkedInPreviewCard extends StatelessWidget {
           // Content
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Text(
-              content,
+            child: LinkableText(
+              text: content,
               style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.4),
+              linkStyle: const TextStyle(color: Color(0xFF0A66C2), fontSize: 14, height: 1.4),
             ),
           ),
           // Tags
