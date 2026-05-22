@@ -41,8 +41,10 @@ class MediaFileService {
 
   Future<PickFileResult> pickAndSaveFile() async {
     if (Platform.isAndroid) {
-      final permissionResult = await _requestStoragePermission();
-      if (permissionResult != null) return permissionResult;
+      final granted = await Permission.manageExternalStorage.isGranted;
+      if (!granted) {
+        return PickFilePermissionDenied(isPermanentlyDenied: true);
+      }
     }
 
     final result = await FilePicker.platform.pickFiles(
@@ -62,20 +64,6 @@ class MediaFileService {
       item = await _saveFromBytes(bytes, file.name);
     }
     return PickFileSuccess(item);
-  }
-
-  /// Returns a [PickFilePermissionDenied] if storage permission is not granted,
-  /// or null if the caller should proceed.
-  /// On Android 13+ permission_handler maps Permission.photos to READ_MEDIA_IMAGES/VIDEO.
-  /// On Android ≤12 it maps Permission.storage to READ_EXTERNAL_STORAGE.
-  Future<PickFilePermissionDenied?> _requestStoragePermission() async {
-    // permission_handler selects the correct permission per SDK version internally.
-    final permission = Permission.photos;
-    var status = await permission.status;
-    if (status.isGranted) return null;
-    status = await permission.request();
-    if (status.isGranted) return null;
-    return PickFilePermissionDenied(isPermanentlyDenied: status.isPermanentlyDenied);
   }
 
   Future<MediaItem> _saveFromBytes(List<int> bytes, String originalFilename) async {
