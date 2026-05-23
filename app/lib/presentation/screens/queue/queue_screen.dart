@@ -242,7 +242,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       ),
       body: Column(
         children: [
-          _LastPublishedBanner(categories: categoriesAsync.valueOrNull ?? []),
+          if (widget.status == PostStatus.pending || widget.status == PostStatus.partialPublished)
+            _LastPublishedBanner(categories: categoriesAsync.valueOrNull ?? []),
           _FilterBar(
             timeFilter: _timeFilter,
             selectedCategoryIds: _selectedCategoryIds,
