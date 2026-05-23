@@ -242,6 +242,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       ),
       body: Column(
         children: [
+          _LastPublishedBanner(categories: categoriesAsync.valueOrNull ?? []),
           _FilterBar(
             timeFilter: _timeFilter,
             selectedCategoryIds: _selectedCategoryIds,
@@ -274,6 +275,44 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 }
                 return _PostList(posts: filtered, categories: cats);
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LastPublishedBanner extends ConsumerWidget {
+  final List<Category> categories;
+  const _LastPublishedBanner({required this.categories});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final publishedAsync = ref.watch(postListProvider(PostStatus.published));
+    final posts = publishedAsync.valueOrNull;
+    final String categoryName;
+    if (posts == null || posts.isEmpty) {
+      categoryName = 'None';
+    } else {
+      final last = posts.reduce((a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b);
+      final category = categories.where((c) => c.id == last.categoryId).firstOrNull;
+      categoryName = category?.name ?? 'None';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: Theme.of(context).colorScheme.secondaryContainer.withAlpha(120),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 14, color: Theme.of(context).colorScheme.secondary),
+          const SizedBox(width: 6),
+          Text(
+            'Last published: $categoryName',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.secondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
