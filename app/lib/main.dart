@@ -13,6 +13,10 @@ void main() async {
   final bootstrap = await service.load();
   // DB always lives in app documents so macOS sandbox never blocks it.
   final dbPath = await service.dbPath();
+  // On every launch, sync state from castpa.db in the selected folder (if any).
+  if (bootstrap.hasSyncFolder) {
+    await service.importDbFromFolder(bootstrap.syncFolderPath!);
+  }
   final db = AppDatabase(dbPath);
   final localDb = LocalDatabase();
 
