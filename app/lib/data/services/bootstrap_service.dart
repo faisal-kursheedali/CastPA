@@ -61,15 +61,20 @@ class BootstrapService {
     return File(path).existsSync() ? path : null;
   }
 
-  Future<bool> importDbFromFolder(String syncFolderPath) async {
-    final src = existingDbInFolder(syncFolderPath);
-    if (src == null) return false;
-    final dest = await dbPath();
-    await File(src).copy(dest);
-    return true;
-  }
-
-  Future<String> dbPath() async {
+  /// Returns the path the app should open as its live database.
+  ///
+  /// When a sync folder is configured **and** accessible, the DB is opened
+  /// directly from that folder so every Drift write lands in castpa.db
+  /// immediately (no copy needed).  Falls back to the sandboxed app-documents
+  /// path when no sync folder is set.
+  Future<String> dbPath({String? syncFolderPath}) async {
+    if (syncFolderPath != null && syncFolderPath.isNotEmpty) {
+      final syncDb = p.join(syncFolderPath, 'castpa.db');
+      // Prefer the sync-folder file if the directory is accessible.
+      if (Directory(syncFolderPath).existsSync()) {
+        return syncDb;
+      }
+    }
     final dir = await getApplicationDocumentsDirectory();
     return p.join(dir.path, 'castpa.db');
   }

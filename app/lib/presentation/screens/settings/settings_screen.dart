@@ -4,9 +4,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:castpa/application/providers/database_provider.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/settings_notifier.dart';
 import 'package:castpa/application/providers/bootstrap_provider.dart';
+import 'package:castpa/data/database/app_database.dart';
 import 'package:castpa/data/services/bootstrap_service.dart';
 import 'package:castpa/data/services/oauth_service.dart';
 import 'package:castpa/domain/entities/app_settings.dart';
@@ -320,33 +322,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final bootstrapService = ref.read(bootstrapServiceProvider);
     final config = ref.read(bootstrapConfigProvider).valueOrNull;
 
-    // 1. Export current castpa.db into the sync folder so it can be restored
-    //    when the user links this folder again.
+    // 1. The DB lives directly in the sync folder. On unlink, copy it to the
+    //    sandboxed app-documents location so the app still has data afterwards.
     if (config?.syncFolderPath != null && config!.syncFolderPath!.isNotEmpty) {
-      final srcPath = await bootstrapService.dbPath();
-      final destPath = '${config.syncFolderPath}/castpa.db';
-      final dir = Directory(config.syncFolderPath!);
-      if (!await dir.exists()) {
-        try {
-          await dir.create(recursive: true);
-        } catch (_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Cannot create sync folder at "${config.syncFolderPath}". '
-                  'Please grant folder access and try again.',
-                ),
-                duration: const Duration(seconds: 5),
-              ),
-            );
-          }
-          return;
-        }
+      final syncDbPath = '${config.syncFolderPath}/castpa.db';
+      final appDbPath = await bootstrapService.dbPath(); // app documents fallback
+      if (File(syncDbPath).existsSync() && syncDbPath != appDbPath) {
+        // ignore: avoid_print
+        print('[UNLINK] preserving castpa.db → $appDbPath');
+        await File(syncDbPath).copy(appDbPath);
       }
-      // ignore: avoid_print
-      print('[UNLINK] exporting castpa.db → $destPath');
-      await File(srcPath).copy(destPath);
+      // Swap the live DB connection to the app-documents copy.
+      final currentDb = ref.read(databaseProvider);
+      await currentDb.close();
+      ref.read(databaseProvider.notifier).state = AppDatabase(appDbPath);
     }
 
     // 2. Clear the path in local storage (SharedPreferences)

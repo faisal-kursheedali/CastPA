@@ -120,27 +120,22 @@ class _FolderSetupScreenState extends ConsumerState<FolderSetupScreen> {
       final mediaExists = Directory(bootstrapService.mediaFolderPath(_selectedPath!)).existsSync();
       if (!mediaExists) await bootstrapService.ensureMediaFolder(_selectedPath!);
 
-      // If the folder contains a castpa.db from another device/install, copy
-      // it into app documents so it becomes the active DB. The DB always lives
-      // in app documents to stay accessible under the macOS sandbox.
-      final imported = await bootstrapService.importDbFromFolder(_selectedPath!);
-      final dbPath = await bootstrapService.dbPath();
+      // Open the DB directly from the sync folder — no copy needed.
+      // The app is now a true vessel: Drift reads and writes straight to
+      // castpa.db in the user's chosen folder.
+      final dbPath = await bootstrapService.dbPath(syncFolderPath: _selectedPath);
+      final folderHasDb = bootstrapService.existingDbInFolder(_selectedPath!) != null;
 
-      if (imported) {
+      if (folderHasDb) {
         // ignore: avoid_print
-        print('[FOLDER_SETUP] castpa.db found in folder — importing it');
+        print('[FOLDER_SETUP] castpa.db found in folder — opening it directly');
       } else {
         // ignore: avoid_print
-        print('[FOLDER_SETUP] no castpa.db in folder — wiping old DB and starting fresh');
+        print('[FOLDER_SETUP] no castpa.db in folder — Drift will create one there');
       }
 
-      // Always close the current DB and swap in a new instance.
-      // For fresh folders this deletes the old castpa.db so old data doesn't bleed through.
+      // Close the current DB and swap to the new path.
       await ref.read(databaseProvider).close();
-      if (!imported) {
-        final oldDb = File(dbPath);
-        if (oldDb.existsSync()) await oldDb.delete();
-      }
       ref.read(databaseProvider.notifier).state = AppDatabase(dbPath);
 
       await bootstrapService.saveSyncFolderPath(_selectedPath!);
@@ -148,7 +143,7 @@ class _FolderSetupScreenState extends ConsumerState<FolderSetupScreen> {
       final config = await bootstrapService.load();
       final db = ref.read(databaseProvider);
 
-      if (!imported) {
+      if (!folderHasDb) {
         // Fresh DB — register this device.
         final deviceRepo = DeviceRepositoryImpl(db);
         await deviceRepo.upsertDevice(

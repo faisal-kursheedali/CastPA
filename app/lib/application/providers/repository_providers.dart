@@ -17,6 +17,7 @@ import 'package:castpa/domain/entities/trending.dart';
 import 'package:castpa/domain/repositories/trending_repository.dart';
 
 final latestTrendingProvider = FutureProvider.autoDispose<Trending?>((ref) {
+  ref.watch(dbEpochProvider); // rebuild when external db change detected
   return ref.watch(trendingRepositoryProvider).getMostRecent();
 });
 
