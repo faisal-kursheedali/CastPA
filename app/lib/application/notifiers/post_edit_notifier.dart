@@ -18,6 +18,8 @@ class PostEditState {
   final bool isPolishing;
   final String? polishError;
   final bool isSubmitting;
+  final bool includeTrendingTags;
+  final bool includeCategoryTags;
 
   const PostEditState({
     required this.post,
@@ -26,6 +28,8 @@ class PostEditState {
     this.isPolishing = false,
     this.polishError,
     this.isSubmitting = false,
+    this.includeTrendingTags = true,
+    this.includeCategoryTags = true,
   });
 
   PostEditState copyWith({
@@ -35,6 +39,8 @@ class PostEditState {
     bool? isPolishing,
     String? polishError,
     bool? isSubmitting,
+    bool? includeTrendingTags,
+    bool? includeCategoryTags,
     bool clearPolishError = false,
     bool clearSaveError = false,
   }) {
@@ -45,6 +51,8 @@ class PostEditState {
       isPolishing: isPolishing ?? this.isPolishing,
       polishError: clearPolishError ? null : polishError ?? this.polishError,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      includeTrendingTags: includeTrendingTags ?? this.includeTrendingTags,
+      includeCategoryTags: includeCategoryTags ?? this.includeCategoryTags,
     );
   }
 }
@@ -128,6 +136,26 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
   void updateTrendsBasePublishTags(List<String> tags) => _updateAndScheduleSave(
     state.post.copyWith(trendsBasePublishTags: tags, updatedAt: DateTime.now()),
   );
+
+  void setIncludeTrendingTags(bool value, List<String> resolvedTrendTags) {
+    state = state.copyWith(includeTrendingTags: value);
+    _updateAndScheduleSave(
+      state.post.copyWith(
+        trendsBasePublishTags: value ? resolvedTrendTags : [],
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  void setIncludeCategoryTags(bool value, List<String> resolvedCategoryTags) {
+    state = state.copyWith(includeCategoryTags: value);
+    _updateAndScheduleSave(
+      state.post.copyWith(
+        categoryBasePublishTags: value ? resolvedCategoryTags : [],
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
 
   void updateMediaIds(List<String> ids) => _updateAndScheduleSave(
     state.post.copyWith(mediaIds: ids, updatedAt: DateTime.now()),

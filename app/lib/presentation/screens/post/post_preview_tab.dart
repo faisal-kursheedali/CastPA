@@ -3,10 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:castpa/application/notifiers/post_edit_notifier.dart';
 import 'package:castpa/application/notifiers/publish_notifier.dart';
-import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/service_providers.dart';
-import 'package:castpa/data/services/media_file_service.dart';
-import 'package:castpa/application/notifiers/category_notifier.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/presentation/screens/post/post_edit_tab.dart' show mediaItemsByIdsProvider;
 import 'package:castpa/presentation/widgets/preview/linkedin_preview_card.dart';
@@ -24,8 +21,6 @@ class PostPreviewTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final editState = ref.watch(postEditProvider);
     final post = editState.post;
-    final trending = ref.watch(latestTrendingProvider).valueOrNull;
-    final categories = ref.watch(categoryNotifierProvider).valueOrNull ?? [];
     final fileService = ref.watch(mediaFileServiceProvider);
     final mediaIds = ref.watch(postEditProvider.select((s) => s.post.mediaIds));
     final mediaItems = ref.watch(mediaItemsByIdsProvider(mediaIds.join(','))).valueOrNull ?? [];
@@ -37,17 +32,11 @@ class PostPreviewTab extends ConsumerWidget {
         (post.twitterContent?.isNotEmpty ?? false);
     final isPending = post.status == PostStatus.pending || post.status == PostStatus.partialPublished;
 
-    final selectedCategory = post.categoryId == null
-        ? null
-        : categories.where((c) => c.id == post.categoryId).firstOrNull;
-    final categoryTags = selectedCategory == null
-        ? <String>[]
-        : (trending?.categoryTopics[selectedCategory.name.toUpperCase()] ?? []);
-
+    // Use tags already stored on the post (synced by _TagSelectionSection checkboxes)
     final allTags = [
       ...post.postBaseTags,
-      ...categoryTags,
-      ...?trending?.trendTopics.map((t) => t.replaceAll(' ', '_')),
+      ...post.categoryBasePublishTags,
+      ...post.trendsBasePublishTags,
     ];
 
     return SingleChildScrollView(

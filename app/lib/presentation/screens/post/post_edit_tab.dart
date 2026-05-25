@@ -257,18 +257,11 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
             ),
             const SizedBox(height: 16),
           ],
-          // Tags
-          TagChipsEditor(
-            label: 'Post Base Tags',
-            tags: post.postBaseTags,
-            readOnly: widget.readOnly,
-            onChanged: (tags) => ref.read(postEditProvider.notifier).updatePostBaseTags(tags),
-          ),
-          _TrendingTagsSection(
+          // Tag checkboxes + tags
+          _TagSelectionSection(
             selectedCategoryId: post.categoryId,
             categories: categories,
-            currentCategoryTags: post.categoryBasePublishTags,
-            currentTrendTags: post.trendsBasePublishTags,
+            readOnly: widget.readOnly,
           ),
           const SizedBox(height: 24),
           // Polish button
@@ -626,28 +619,34 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
   }
 }
 
-class _TrendingTagsSection extends ConsumerStatefulWidget {
+class _TagSelectionSection extends ConsumerStatefulWidget {
   final String? selectedCategoryId;
   final List<Category> categories;
-  final List<String> currentCategoryTags;
-  final List<String> currentTrendTags;
+  final bool readOnly;
 
-  const _TrendingTagsSection({
+  const _TagSelectionSection({
     required this.selectedCategoryId,
     required this.categories,
-    required this.currentCategoryTags,
-    required this.currentTrendTags,
+    required this.readOnly,
   });
 
   @override
-  ConsumerState<_TrendingTagsSection> createState() => _TrendingTagsSectionState();
+  ConsumerState<_TagSelectionSection> createState() => _TagSelectionSectionState();
 }
 
-class _TrendingTagsSectionState extends ConsumerState<_TrendingTagsSection> {
+class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
+  // Resolved tags from trending data (source of truth for syncing back)
+  List<String> _resolvedCategoryTags = [];
+  List<String> _resolvedTrendTags = [];
+
   @override
   Widget build(BuildContext context) {
     final trendingAsync = ref.watch(latestTrendingProvider);
     final trending = trendingAsync.valueOrNull;
+    final editState = ref.watch(postEditProvider);
+    final post = editState.post;
+    final includeTrending = editState.includeTrendingTags;
+    final includeCategory = editState.includeCategoryTags;
 
     final selectedCategory = widget.selectedCategoryId == null
         ? null
@@ -659,32 +658,89 @@ class _TrendingTagsSectionState extends ConsumerState<_TrendingTagsSection> {
 
     final trendTags = trending?.trendTopics.map((t) => t.replaceAll(' ', '_')).toList() ?? [];
 
-    // Sync resolved tags back into the post so publish_notifier can use them.
+    // Keep resolved tags up to date for use in callbacks
+    _resolvedCategoryTags = categoryTags;
+    _resolvedTrendTags = trendTags;
+
+    // Sync resolved tags into the post whenever the source data changes,
+    // respecting the current checkbox state.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final notifier = ref.read(postEditProvider.notifier);
-      if (categoryTags.join() != widget.currentCategoryTags.join()) {
-        notifier.updateCategoryBasePublishTags(categoryTags);
+      final expectedCategory = includeCategory ? categoryTags : <String>[];
+      final expectedTrend = includeTrending ? trendTags : <String>[];
+      if (expectedCategory.join() != post.categoryBasePublishTags.join()) {
+        notifier.updateCategoryBasePublishTags(expectedCategory);
       }
-      if (trendTags.join() != widget.currentTrendTags.join()) {
-        notifier.updateTrendsBasePublishTags(trendTags);
+      if (expectedTrend.join() != post.trendsBasePublishTags.join()) {
+        notifier.updateTrendsBasePublishTags(expectedTrend);
       }
     });
+
+    final hasCategorySelected = widget.selectedCategoryId != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (categoryTags.isNotEmpty)
+        // Post base tags editor
+        TagChipsEditor(
+          label: 'Post Base Tags',
+          tags: post.postBaseTags,
+          readOnly: widget.readOnly,
+          onChanged: (tags) => ref.read(postEditProvider.notifier).updatePostBaseTags(tags),
+        ),
+        const SizedBox(height: 8),
+
+        // Trending tags checkbox
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          value: includeTrending,
+          title: const Text('Include Trending Tags'),
+          subtitle: trendTags.isEmpty ? const Text('No trending tags available', style: TextStyle(fontSize: 12)) : null,
+          enabled: !widget.readOnly && trendTags.isNotEmpty,
+          controlAffinity: ListTileControlAffinity.leading,
+          onChanged: widget.readOnly || trendTags.isEmpty
+              ? null
+              : (val) => ref
+                  .read(postEditProvider.notifier)
+                  .setIncludeTrendingTags(val ?? false, _resolvedTrendTags),
+        ),
+
+        // Category tags checkbox — only visible when a category is selected
+        if (hasCategorySelected)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: includeCategory,
+            title: const Text('Include Category Tags'),
+            subtitle: categoryTags.isEmpty ? const Text('No category tags available', style: TextStyle(fontSize: 12)) : null,
+            enabled: !widget.readOnly && categoryTags.isNotEmpty,
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: widget.readOnly || categoryTags.isEmpty
+                ? null
+                : (val) => ref
+                    .read(postEditProvider.notifier)
+                    .setIncludeCategoryTags(val ?? false, _resolvedCategoryTags),
+          ),
+
+        // Show selected tag chips
+        if (includeTrending && trendTags.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          TagChipsEditor(
+            label: 'Trending Tags',
+            tags: trendTags,
+            readOnly: true,
+          ),
+        ],
+        if (hasCategorySelected && includeCategory && categoryTags.isNotEmpty) ...[
+          const SizedBox(height: 4),
           TagChipsEditor(
             label: 'Category Tags',
             tags: categoryTags,
             readOnly: true,
           ),
-        TagChipsEditor(
-          label: 'Trends Tags',
-          tags: trendTags,
-          readOnly: true,
-        ),
+        ],
       ],
     );
   }
