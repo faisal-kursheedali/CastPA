@@ -233,6 +233,8 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final trending = ref.watch(latestTrendingProvider).valueOrNull;
+    final autoFetching = ref.watch(trendingInitProvider).isLoading;
+    final isLoading = _fetching || autoFetching;
 
     final hasTrendTopics = trending != null && trending.trendTopics.isNotEmpty;
     final hasCategoryTopics = trending != null &&
@@ -259,7 +261,7 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
                 const Spacer(),
                 SizedBox(
                   height: 32,
-                  child: _fetching
+                  child: isLoading
                       ? const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 12),
                           child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -281,14 +283,14 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
             const SizedBox(height: 12),
             _ActivityRow(
               label: 'Trend Topics',
-              status: _fetching ? _ActivityStatus.loading : (hasTrendTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
+              status: isLoading ? _ActivityStatus.loading : (hasTrendTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
             ),
             const SizedBox(height: 6),
             _ActivityRow(
               label: 'Category Topics',
-              status: _fetching ? _ActivityStatus.loading : (hasCategoryTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
+              status: isLoading ? _ActivityStatus.loading : (hasCategoryTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
             ),
-            if (!_fetching && trending?.fetchError != null) ...[
+            if (!isLoading && trending?.fetchError != null) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

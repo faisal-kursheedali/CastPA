@@ -22,7 +22,7 @@ class Trending {
 
   bool get isCurrentWeek {
     final now = DateTime.now();
-    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekStart = DateTime(now.year, now.month, now.day - (now.weekday - 1));
     final weekEnd = weekStart.add(const Duration(days: 7));
     return addedDate.isAfter(weekStart) && addedDate.isBefore(weekEnd);
   }

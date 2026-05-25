@@ -51,7 +51,9 @@ final trendingServiceProvider = Provider<TrendingService>((ref) {
 
 // Runs once at app startup: checks if trending topics are from this week,
 // fetches and stores fresh ones if not.
+// Waits for settings to load first so the Gemini API key is available.
 final trendingInitProvider = FutureProvider<void>((ref) async {
+  await ref.read(settingsNotifierProvider.future);
   final service = ref.read(trendingServiceProvider);
   await service.getOrFetchCurrentWeek();
 });
