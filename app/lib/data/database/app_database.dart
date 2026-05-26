@@ -62,6 +62,8 @@ class Settings extends Table {
   TextColumn get xClientId => text().nullable()();
   TextColumn get xClientSecret => text().nullable()();
   TextColumn get themeMode => text().withDefault(const Constant('system'))();
+  BoolColumn get copyToLinkedin => boolean().withDefault(const Constant(false))();
+  BoolColumn get copyToX => boolean().withDefault(const Constant(false))();
   // Tracks the logical schema version that has been applied to this DB file.
   // Synced across devices so migrations only run once regardless of which device opens it first.
   IntColumn get dbSchemaVersion => integer().withDefault(const Constant(0))();
@@ -128,7 +130,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String dbPath) : super(_openConnection(dbPath));
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -179,6 +181,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 10) {
         await _safeAlter(
           'ALTER TABLE trendings ADD COLUMN fetch_error TEXT',
+        );
+      }
+      if (from < 11) {
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN copy_to_linkedin INTEGER NOT NULL DEFAULT 0',
+        );
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN copy_to_x INTEGER NOT NULL DEFAULT 0',
         );
       }
     },

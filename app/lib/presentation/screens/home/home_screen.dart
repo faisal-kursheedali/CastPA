@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:castpa/application/notifiers/post_list_notifier.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/application/providers/settings_notifier.dart';
+import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/presentation/widgets/common/weekly_progress_ring.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -11,7 +13,8 @@ class HomeScreen extends ConsumerWidget {
 
   DateTime get _weekStart {
     final now = DateTime.now();
-    return now.subtract(Duration(days: now.weekday - 1));
+    final raw = now.subtract(Duration(days: now.weekday - 1));
+    return DateTime(raw.year, raw.month, raw.day); // midnight Monday
   }
 
   @override
@@ -44,6 +47,10 @@ class HomeScreen extends ConsumerWidget {
 }
 
 final _publishedThisWeekProvider = FutureProvider.autoDispose.family((ref, DateTime weekStart) {
+  // Watch published/partialPublished lists so this re-fetches whenever a post
+  // is marked as published (via API or manual copy-to-platform).
+  ref.watch(postListProvider(PostStatus.published));
+  ref.watch(postListProvider(PostStatus.partialPublished));
   return ref.watch(postRepositoryProvider).getPostsPublishedInWeek(weekStart);
 });
 

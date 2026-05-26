@@ -126,6 +126,50 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
     state = newState;
     return newState;
   }
+
+  /// Marks a single platform as published without calling the API.
+  /// Used by the "Copy to Platform" feature where the user posts manually.
+  Future<void> markAsPublishedManually(Post post, Platform platform) async {
+    final config = ref.read(bootstrapConfigProvider).valueOrNull;
+    final deviceId = config?.deviceId ?? '';
+
+    final publishRepo = ref.read(publishRepositoryProvider);
+    final postRepo = ref.read(postRepositoryProvider);
+
+    await publishRepo.createRecord(PublishRecord(
+      id: _uuid.v4(),
+      postId: post.id,
+      publishedDate: DateTime.now(),
+      platforms: [platform],
+      deviceId: deviceId,
+    ));
+
+    final updatedPublished = [...post.publishedPlatforms, platform];
+    final isFullyPublished = post.selectedPlatforms.every((p) => updatedPublished.contains(p));
+
+    final newStatus = isFullyPublished
+        ? PostStatus.published
+        : updatedPublished.isNotEmpty
+            ? PostStatus.partialPublished
+            : post.status;
+
+    final updatedPost = post.copyWith(
+      publishedPlatforms: updatedPublished,
+      status: newStatus,
+      updatedAt: DateTime.now(),
+    );
+
+    await postRepo.updatePost(updatedPost);
+
+    for (final s in PostStatus.values) {
+      ref.invalidate(postListProvider(s));
+    }
+
+    state = PublishState(
+      status: PublishStatus.success,
+      succeededPlatforms: [platform],
+    );
+  }
 }
 
 final publishNotifierProvider =

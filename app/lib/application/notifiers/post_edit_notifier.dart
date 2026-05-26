@@ -89,6 +89,21 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     state = PostEditState(post: post);
   }
 
+  /// Patches only publish-related fields after a manual copy-to-platform publish.
+  /// Preserves all other state (checkbox selections, polish state, etc.).
+  void applyPublishedPlatform(Platform platform) {
+    final updatedPublished = [...state.post.publishedPlatforms, platform];
+    final isFullyPublished = state.post.selectedPlatforms.every((p) => updatedPublished.contains(p));
+    final newStatus = isFullyPublished ? PostStatus.published : PostStatus.partialPublished;
+    state = state.copyWith(
+      post: state.post.copyWith(
+        publishedPlatforms: updatedPublished,
+        status: newStatus,
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
   // dump change → ensure status is draft (safe default for preview)
   void updateDump(String dump) => _updateAndScheduleSave(
     state.post.copyWith(dump: dump, updatedAt: DateTime.now()),

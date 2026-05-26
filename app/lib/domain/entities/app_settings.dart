@@ -12,6 +12,8 @@ class AppSettings {
   final String? genModel;
   final String? embedModel;
   final String themeMode;
+  final bool copyToLinkedin;
+  final bool copyToX;
 
   const AppSettings({
     this.linkedinAuthToken,
@@ -27,6 +29,8 @@ class AppSettings {
     this.genModel,
     this.embedModel,
     this.themeMode = 'system',
+    this.copyToLinkedin = false,
+    this.copyToX = false,
   });
 
   bool get isLinkedInConnected => linkedinAuthToken != null && linkedinAuthToken!.isNotEmpty;
@@ -55,6 +59,8 @@ class AppSettings {
     String? genModel,
     String? embedModel,
     String? themeMode,
+    bool? copyToLinkedin,
+    bool? copyToX,
     bool clearLinkedin = false,
     bool clearX = false,
   }) {
@@ -72,6 +78,8 @@ class AppSettings {
       genModel: genModel ?? this.genModel,
       embedModel: embedModel ?? this.embedModel,
       themeMode: themeMode ?? this.themeMode,
+      copyToLinkedin: copyToLinkedin ?? this.copyToLinkedin,
+      copyToX: copyToX ?? this.copyToX,
     );
   }
 }

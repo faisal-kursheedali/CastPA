@@ -833,6 +833,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // ── Manual Copy-to-Platform ───────────────────────────────
+              _SectionHeader('Manual Post (Copy to Platform)'),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.business_center_outlined),
+                      title: const Text('Copy to LinkedIn'),
+                      subtitle: const Text(
+                        'Shows a button to copy content and open LinkedIn.\n'
+                        'Note: Publishing is your responsibility — the app will mark the post as published when you tap the button.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: settings.copyToLinkedin,
+                      onChanged: (val) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateWith((s) => s.copyWith(copyToLinkedin: val));
+                      },
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.tag),
+                      title: const Text('Copy to X (Twitter)'),
+                      subtitle: const Text(
+                        'Shows a button to copy content and open X.\n'
+                        'Note: Publishing is your responsibility — the app will mark the post as published when you tap the button.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: settings.copyToX,
+                      onChanged: (val) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateWith((s) => s.copyWith(copyToX: val));
+                      },
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
               // ── Storage ───────────────────────────────────────────────

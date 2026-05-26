@@ -62,8 +62,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           )
           .toList();
     } else if (_timeFilter == 'week') {
-      final weekStart = now.subtract(Duration(days: now.weekday - 1));
-      filtered = filtered.where((p) => p.updatedAt.isAfter(weekStart)).toList();
+      final weekStartRaw = now.subtract(Duration(days: now.weekday - 1));
+      final weekStart = DateTime(weekStartRaw.year, weekStartRaw.month, weekStartRaw.day); // midnight
+      filtered = filtered.where((p) => !p.updatedAt.isBefore(weekStart)).toList();
     } else if (_timeFilter == 'month') {
       filtered = filtered
           .where(

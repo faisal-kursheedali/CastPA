@@ -74,20 +74,26 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen>
           _postLoaded = true;
         }
 
-        final status = post.status;
+        final editState = ref.watch(postEditProvider);
+        // Read status from postEditProvider so AppBar updates instantly
+        // when copy-to-platform patches the state (e.g. pending → partialPublished).
+        final status = editState.post.status == PostStatus.draft && post.status != PostStatus.draft
+            ? post.status
+            : editState.post.status;
         final isPublished = status == PostStatus.published;
         final isPartialPublished = status == PostStatus.partialPublished;
         final isLocked = isPublished || (isPartialPublished && !_fullUnlocked);
         final isTagOnly =
             isPartialPublished && _tagOnlyUnlocked && !_fullUnlocked;
 
-        final saveState = ref.watch(postEditProvider).saveState;
+        final saveState = editState.saveState;
 
         ref.listen(postEditProvider, (_, next) {
           if (next.saveState == SaveState.deleted && context.mounted) {
             Navigator.of(context).pop();
           }
         });
+
 
         return Scaffold(
           appBar: AppBar(

@@ -115,7 +115,8 @@ class PostRepositoryImpl implements PostRepository {
     final weekEnd = weekStart.add(const Duration(days: 7));
     final rows = await (_db.select(_db.posts)
           ..where((t) =>
-              t.status.equals(PostStatus.published.key) &
+              (t.status.equals(PostStatus.published.key) |
+               t.status.equals(PostStatus.partialPublished.key)) &
               t.isRemoved.equals(false) &
               t.updatedAt.isBiggerOrEqualValue(weekStart) &
               t.updatedAt.isSmallerThanValue(weekEnd)))

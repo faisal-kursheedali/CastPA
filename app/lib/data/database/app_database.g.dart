@@ -1550,6 +1550,36 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant('system'),
   );
+  static const VerificationMeta _copyToLinkedinMeta = const VerificationMeta(
+    'copyToLinkedin',
+  );
+  @override
+  late final GeneratedColumn<bool> copyToLinkedin = GeneratedColumn<bool>(
+    'copy_to_linkedin',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("copy_to_linkedin" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _copyToXMeta = const VerificationMeta(
+    'copyToX',
+  );
+  @override
+  late final GeneratedColumn<bool> copyToX = GeneratedColumn<bool>(
+    'copy_to_x',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("copy_to_x" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _dbSchemaVersionMeta = const VerificationMeta(
     'dbSchemaVersion',
   );
@@ -1578,6 +1608,8 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     xClientId,
     xClientSecret,
     themeMode,
+    copyToLinkedin,
+    copyToX,
     dbSchemaVersion,
   ];
   @override
@@ -1703,6 +1735,21 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
       );
     }
+    if (data.containsKey('copy_to_linkedin')) {
+      context.handle(
+        _copyToLinkedinMeta,
+        copyToLinkedin.isAcceptableOrUnknown(
+          data['copy_to_linkedin']!,
+          _copyToLinkedinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('copy_to_x')) {
+      context.handle(
+        _copyToXMeta,
+        copyToX.isAcceptableOrUnknown(data['copy_to_x']!, _copyToXMeta),
+      );
+    }
     if (data.containsKey('db_schema_version')) {
       context.handle(
         _dbSchemaVersionMeta,
@@ -1777,6 +1824,14 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}theme_mode'],
       )!,
+      copyToLinkedin: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}copy_to_linkedin'],
+      )!,
+      copyToX: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}copy_to_x'],
+      )!,
       dbSchemaVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}db_schema_version'],
@@ -1805,6 +1860,8 @@ class Setting extends DataClass implements Insertable<Setting> {
   final String? xClientId;
   final String? xClientSecret;
   final String themeMode;
+  final bool copyToLinkedin;
+  final bool copyToX;
   final int dbSchemaVersion;
   const Setting({
     required this.rowId,
@@ -1821,6 +1878,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.xClientId,
     this.xClientSecret,
     required this.themeMode,
+    required this.copyToLinkedin,
+    required this.copyToX,
     required this.dbSchemaVersion,
   });
   @override
@@ -1862,6 +1921,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       map['x_client_secret'] = Variable<String>(xClientSecret);
     }
     map['theme_mode'] = Variable<String>(themeMode);
+    map['copy_to_linkedin'] = Variable<bool>(copyToLinkedin);
+    map['copy_to_x'] = Variable<bool>(copyToX);
     map['db_schema_version'] = Variable<int>(dbSchemaVersion);
     return map;
   }
@@ -1904,6 +1965,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? const Value.absent()
           : Value(xClientSecret),
       themeMode: Value(themeMode),
+      copyToLinkedin: Value(copyToLinkedin),
+      copyToX: Value(copyToX),
       dbSchemaVersion: Value(dbSchemaVersion),
     );
   }
@@ -1934,6 +1997,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       xClientId: serializer.fromJson<String?>(json['xClientId']),
       xClientSecret: serializer.fromJson<String?>(json['xClientSecret']),
       themeMode: serializer.fromJson<String>(json['themeMode']),
+      copyToLinkedin: serializer.fromJson<bool>(json['copyToLinkedin']),
+      copyToX: serializer.fromJson<bool>(json['copyToX']),
       dbSchemaVersion: serializer.fromJson<int>(json['dbSchemaVersion']),
     );
   }
@@ -1955,6 +2020,8 @@ class Setting extends DataClass implements Insertable<Setting> {
       'xClientId': serializer.toJson<String?>(xClientId),
       'xClientSecret': serializer.toJson<String?>(xClientSecret),
       'themeMode': serializer.toJson<String>(themeMode),
+      'copyToLinkedin': serializer.toJson<bool>(copyToLinkedin),
+      'copyToX': serializer.toJson<bool>(copyToX),
       'dbSchemaVersion': serializer.toJson<int>(dbSchemaVersion),
     };
   }
@@ -1974,6 +2041,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> xClientId = const Value.absent(),
     Value<String?> xClientSecret = const Value.absent(),
     String? themeMode,
+    bool? copyToLinkedin,
+    bool? copyToX,
     int? dbSchemaVersion,
   }) => Setting(
     rowId: rowId ?? this.rowId,
@@ -2002,6 +2071,8 @@ class Setting extends DataClass implements Insertable<Setting> {
         ? xClientSecret.value
         : this.xClientSecret,
     themeMode: themeMode ?? this.themeMode,
+    copyToLinkedin: copyToLinkedin ?? this.copyToLinkedin,
+    copyToX: copyToX ?? this.copyToX,
     dbSchemaVersion: dbSchemaVersion ?? this.dbSchemaVersion,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
@@ -2040,6 +2111,10 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.xClientSecret.value
           : this.xClientSecret,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      copyToLinkedin: data.copyToLinkedin.present
+          ? data.copyToLinkedin.value
+          : this.copyToLinkedin,
+      copyToX: data.copyToX.present ? data.copyToX.value : this.copyToX,
       dbSchemaVersion: data.dbSchemaVersion.present
           ? data.dbSchemaVersion.value
           : this.dbSchemaVersion,
@@ -2063,6 +2138,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('xClientId: $xClientId, ')
           ..write('xClientSecret: $xClientSecret, ')
           ..write('themeMode: $themeMode, ')
+          ..write('copyToLinkedin: $copyToLinkedin, ')
+          ..write('copyToX: $copyToX, ')
           ..write('dbSchemaVersion: $dbSchemaVersion')
           ..write(')'))
         .toString();
@@ -2084,6 +2161,8 @@ class Setting extends DataClass implements Insertable<Setting> {
     xClientId,
     xClientSecret,
     themeMode,
+    copyToLinkedin,
+    copyToX,
     dbSchemaVersion,
   );
   @override
@@ -2104,6 +2183,8 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.xClientId == this.xClientId &&
           other.xClientSecret == this.xClientSecret &&
           other.themeMode == this.themeMode &&
+          other.copyToLinkedin == this.copyToLinkedin &&
+          other.copyToX == this.copyToX &&
           other.dbSchemaVersion == this.dbSchemaVersion);
 }
 
@@ -2122,6 +2203,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String?> xClientId;
   final Value<String?> xClientSecret;
   final Value<String> themeMode;
+  final Value<bool> copyToLinkedin;
+  final Value<bool> copyToX;
   final Value<int> dbSchemaVersion;
   const SettingsCompanion({
     this.rowId = const Value.absent(),
@@ -2138,6 +2221,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.xClientId = const Value.absent(),
     this.xClientSecret = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.copyToLinkedin = const Value.absent(),
+    this.copyToX = const Value.absent(),
     this.dbSchemaVersion = const Value.absent(),
   });
   SettingsCompanion.insert({
@@ -2155,6 +2240,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.xClientId = const Value.absent(),
     this.xClientSecret = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.copyToLinkedin = const Value.absent(),
+    this.copyToX = const Value.absent(),
     this.dbSchemaVersion = const Value.absent(),
   });
   static Insertable<Setting> custom({
@@ -2172,6 +2259,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<String>? xClientId,
     Expression<String>? xClientSecret,
     Expression<String>? themeMode,
+    Expression<bool>? copyToLinkedin,
+    Expression<bool>? copyToX,
     Expression<int>? dbSchemaVersion,
   }) {
     return RawValuesInsertable({
@@ -2191,6 +2280,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (xClientId != null) 'x_client_id': xClientId,
       if (xClientSecret != null) 'x_client_secret': xClientSecret,
       if (themeMode != null) 'theme_mode': themeMode,
+      if (copyToLinkedin != null) 'copy_to_linkedin': copyToLinkedin,
+      if (copyToX != null) 'copy_to_x': copyToX,
       if (dbSchemaVersion != null) 'db_schema_version': dbSchemaVersion,
     });
   }
@@ -2210,6 +2301,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<String?>? xClientId,
     Value<String?>? xClientSecret,
     Value<String>? themeMode,
+    Value<bool>? copyToLinkedin,
+    Value<bool>? copyToX,
     Value<int>? dbSchemaVersion,
   }) {
     return SettingsCompanion(
@@ -2227,6 +2320,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       xClientId: xClientId ?? this.xClientId,
       xClientSecret: xClientSecret ?? this.xClientSecret,
       themeMode: themeMode ?? this.themeMode,
+      copyToLinkedin: copyToLinkedin ?? this.copyToLinkedin,
+      copyToX: copyToX ?? this.copyToX,
       dbSchemaVersion: dbSchemaVersion ?? this.dbSchemaVersion,
     );
   }
@@ -2280,6 +2375,12 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (themeMode.present) {
       map['theme_mode'] = Variable<String>(themeMode.value);
     }
+    if (copyToLinkedin.present) {
+      map['copy_to_linkedin'] = Variable<bool>(copyToLinkedin.value);
+    }
+    if (copyToX.present) {
+      map['copy_to_x'] = Variable<bool>(copyToX.value);
+    }
     if (dbSchemaVersion.present) {
       map['db_schema_version'] = Variable<int>(dbSchemaVersion.value);
     }
@@ -2303,6 +2404,8 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('xClientId: $xClientId, ')
           ..write('xClientSecret: $xClientSecret, ')
           ..write('themeMode: $themeMode, ')
+          ..write('copyToLinkedin: $copyToLinkedin, ')
+          ..write('copyToX: $copyToX, ')
           ..write('dbSchemaVersion: $dbSchemaVersion')
           ..write(')'))
         .toString();
@@ -4529,6 +4632,8 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<String?> xClientId,
       Value<String?> xClientSecret,
       Value<String> themeMode,
+      Value<bool> copyToLinkedin,
+      Value<bool> copyToX,
       Value<int> dbSchemaVersion,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
@@ -4547,6 +4652,8 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<String?> xClientId,
       Value<String?> xClientSecret,
       Value<String> themeMode,
+      Value<bool> copyToLinkedin,
+      Value<bool> copyToX,
       Value<int> dbSchemaVersion,
     });
 
@@ -4626,6 +4733,16 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get themeMode => $composableBuilder(
     column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get copyToLinkedin => $composableBuilder(
+    column: $table.copyToLinkedin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get copyToX => $composableBuilder(
+    column: $table.copyToX,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4714,6 +4831,16 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get copyToLinkedin => $composableBuilder(
+    column: $table.copyToLinkedin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get copyToX => $composableBuilder(
+    column: $table.copyToX,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get dbSchemaVersion => $composableBuilder(
     column: $table.dbSchemaVersion,
     builder: (column) => ColumnOrderings(column),
@@ -4791,6 +4918,14 @@ class $$SettingsTableAnnotationComposer
   GeneratedColumn<String> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
 
+  GeneratedColumn<bool> get copyToLinkedin => $composableBuilder(
+    column: $table.copyToLinkedin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get copyToX =>
+      $composableBuilder(column: $table.copyToX, builder: (column) => column);
+
   GeneratedColumn<int> get dbSchemaVersion => $composableBuilder(
     column: $table.dbSchemaVersion,
     builder: (column) => column,
@@ -4839,6 +4974,8 @@ class $$SettingsTableTableManager
                 Value<String?> xClientId = const Value.absent(),
                 Value<String?> xClientSecret = const Value.absent(),
                 Value<String> themeMode = const Value.absent(),
+                Value<bool> copyToLinkedin = const Value.absent(),
+                Value<bool> copyToX = const Value.absent(),
                 Value<int> dbSchemaVersion = const Value.absent(),
               }) => SettingsCompanion(
                 rowId: rowId,
@@ -4855,6 +4992,8 @@ class $$SettingsTableTableManager
                 xClientId: xClientId,
                 xClientSecret: xClientSecret,
                 themeMode: themeMode,
+                copyToLinkedin: copyToLinkedin,
+                copyToX: copyToX,
                 dbSchemaVersion: dbSchemaVersion,
               ),
           createCompanionCallback:
@@ -4873,6 +5012,8 @@ class $$SettingsTableTableManager
                 Value<String?> xClientId = const Value.absent(),
                 Value<String?> xClientSecret = const Value.absent(),
                 Value<String> themeMode = const Value.absent(),
+                Value<bool> copyToLinkedin = const Value.absent(),
+                Value<bool> copyToX = const Value.absent(),
                 Value<int> dbSchemaVersion = const Value.absent(),
               }) => SettingsCompanion.insert(
                 rowId: rowId,
@@ -4889,6 +5030,8 @@ class $$SettingsTableTableManager
                 xClientId: xClientId,
                 xClientSecret: xClientSecret,
                 themeMode: themeMode,
+                copyToLinkedin: copyToLinkedin,
+                copyToX: copyToX,
                 dbSchemaVersion: dbSchemaVersion,
               ),
           withReferenceMapper: (p0) => p0

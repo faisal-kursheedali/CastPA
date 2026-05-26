@@ -28,6 +28,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
       genModel: row.genModel,
       embedModel: row.embedModel,
       themeMode: row.themeMode,
+      copyToLinkedin: row.copyToLinkedin,
+      copyToX: row.copyToX,
     );
   }
 
@@ -48,6 +50,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
       genModel: Value(settings.genModel),
       embedModel: Value(settings.embedModel),
       themeMode: Value(settings.themeMode),
+      copyToLinkedin: Value(settings.copyToLinkedin),
+      copyToX: Value(settings.copyToX),
     ));
   }
 }
