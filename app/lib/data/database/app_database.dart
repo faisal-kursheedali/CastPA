@@ -116,6 +116,7 @@ class Trendings extends Table {
   TextColumn get platform =>
       text().withDefault(const Constant('gemini'))();
   TextColumn get fetchError => text().nullable()();
+  TextColumn get rawTrendingJson => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -130,7 +131,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String dbPath) : super(_openConnection(dbPath));
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -189,6 +190,11 @@ class AppDatabase extends _$AppDatabase {
         );
         await _safeAlter(
           'ALTER TABLE settings ADD COLUMN copy_to_x INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 12) {
+        await _safeAlter(
+          'ALTER TABLE trendings ADD COLUMN raw_trending_json TEXT',
         );
       }
     },

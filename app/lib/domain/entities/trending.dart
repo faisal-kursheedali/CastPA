@@ -1,6 +1,8 @@
 class Trending {
   final String id;
   final List<String> trendTopics;
+  /// Raw trend topics as received from the source, before any transformation.
+  final List<String> rawTrendingTopics;
   /// Map of category name → related hashtags/search terms for that category.
   final Map<String, List<String>> categoryTopics;
   final DateTime addedDate;
@@ -12,6 +14,7 @@ class Trending {
   const Trending({
     required this.id,
     required this.trendTopics,
+    required this.rawTrendingTopics,
     required this.categoryTopics,
     required this.addedDate,
     required this.fullEmbedding,

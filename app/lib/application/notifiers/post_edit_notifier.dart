@@ -306,7 +306,22 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     state = state.copyWith(isSubmitting: true, clearPolishError: true);
     try {
       final embService = ref.read(embeddingServiceProvider);
-      final contentForEmbedding = post.linkedinContent ?? post.twitterContent!;
+
+      // Reserve ~80 tokens for content (~320 chars) + ~40 tokens for tags (~160 chars).
+      final rawContent = post.twitterContent ?? post.linkedinContent!;
+      final contentPart = rawContent.length > 320
+          ? rawContent.substring(0, 320)
+          : rawContent;
+
+      final allTags = post.postBaseTags.join(' ');
+      final tagPart = allTags.length > 160
+          ? allTags.substring(0, 160)
+          : allTags;
+
+      final contentForEmbedding = tagPart.isNotEmpty
+          ? '$contentPart $tagPart'
+          : contentPart;
+
       final vec = await embService.embed(contentForEmbedding);
       final embedding = vec.isNotEmpty ? vec.join(',') : post.embedding;
 

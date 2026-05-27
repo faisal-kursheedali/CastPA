@@ -3520,6 +3520,17 @@ class $TrendingsTable extends Trendings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _rawTrendingJsonMeta = const VerificationMeta(
+    'rawTrendingJson',
+  );
+  @override
+  late final GeneratedColumn<String> rawTrendingJson = GeneratedColumn<String>(
+    'raw_trending_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3530,6 +3541,7 @@ class $TrendingsTable extends Trendings
     eachEmbeddingJson,
     platform,
     fetchError,
+    rawTrendingJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3604,6 +3616,15 @@ class $TrendingsTable extends Trendings
         fetchError.isAcceptableOrUnknown(data['fetch_error']!, _fetchErrorMeta),
       );
     }
+    if (data.containsKey('raw_trending_json')) {
+      context.handle(
+        _rawTrendingJsonMeta,
+        rawTrendingJson.isAcceptableOrUnknown(
+          data['raw_trending_json']!,
+          _rawTrendingJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3645,6 +3666,10 @@ class $TrendingsTable extends Trendings
         DriftSqlType.string,
         data['${effectivePrefix}fetch_error'],
       ),
+      rawTrendingJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_trending_json'],
+      ),
     );
   }
 
@@ -3663,6 +3688,7 @@ class Trending extends DataClass implements Insertable<Trending> {
   final String eachEmbeddingJson;
   final String platform;
   final String? fetchError;
+  final String? rawTrendingJson;
   const Trending({
     required this.id,
     required this.trendTopicsJson,
@@ -3672,6 +3698,7 @@ class Trending extends DataClass implements Insertable<Trending> {
     required this.eachEmbeddingJson,
     required this.platform,
     this.fetchError,
+    this.rawTrendingJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3685,6 +3712,9 @@ class Trending extends DataClass implements Insertable<Trending> {
     map['platform'] = Variable<String>(platform);
     if (!nullToAbsent || fetchError != null) {
       map['fetch_error'] = Variable<String>(fetchError);
+    }
+    if (!nullToAbsent || rawTrendingJson != null) {
+      map['raw_trending_json'] = Variable<String>(rawTrendingJson);
     }
     return map;
   }
@@ -3701,6 +3731,9 @@ class Trending extends DataClass implements Insertable<Trending> {
       fetchError: fetchError == null && nullToAbsent
           ? const Value.absent()
           : Value(fetchError),
+      rawTrendingJson: rawTrendingJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawTrendingJson),
     );
   }
 
@@ -3720,6 +3753,7 @@ class Trending extends DataClass implements Insertable<Trending> {
       eachEmbeddingJson: serializer.fromJson<String>(json['eachEmbeddingJson']),
       platform: serializer.fromJson<String>(json['platform']),
       fetchError: serializer.fromJson<String?>(json['fetchError']),
+      rawTrendingJson: serializer.fromJson<String?>(json['rawTrendingJson']),
     );
   }
   @override
@@ -3734,6 +3768,7 @@ class Trending extends DataClass implements Insertable<Trending> {
       'eachEmbeddingJson': serializer.toJson<String>(eachEmbeddingJson),
       'platform': serializer.toJson<String>(platform),
       'fetchError': serializer.toJson<String?>(fetchError),
+      'rawTrendingJson': serializer.toJson<String?>(rawTrendingJson),
     };
   }
 
@@ -3746,6 +3781,7 @@ class Trending extends DataClass implements Insertable<Trending> {
     String? eachEmbeddingJson,
     String? platform,
     Value<String?> fetchError = const Value.absent(),
+    Value<String?> rawTrendingJson = const Value.absent(),
   }) => Trending(
     id: id ?? this.id,
     trendTopicsJson: trendTopicsJson ?? this.trendTopicsJson,
@@ -3755,6 +3791,9 @@ class Trending extends DataClass implements Insertable<Trending> {
     eachEmbeddingJson: eachEmbeddingJson ?? this.eachEmbeddingJson,
     platform: platform ?? this.platform,
     fetchError: fetchError.present ? fetchError.value : this.fetchError,
+    rawTrendingJson: rawTrendingJson.present
+        ? rawTrendingJson.value
+        : this.rawTrendingJson,
   );
   Trending copyWithCompanion(TrendingsCompanion data) {
     return Trending(
@@ -3776,6 +3815,9 @@ class Trending extends DataClass implements Insertable<Trending> {
       fetchError: data.fetchError.present
           ? data.fetchError.value
           : this.fetchError,
+      rawTrendingJson: data.rawTrendingJson.present
+          ? data.rawTrendingJson.value
+          : this.rawTrendingJson,
     );
   }
 
@@ -3789,7 +3831,8 @@ class Trending extends DataClass implements Insertable<Trending> {
           ..write('fullEmbeddingJson: $fullEmbeddingJson, ')
           ..write('eachEmbeddingJson: $eachEmbeddingJson, ')
           ..write('platform: $platform, ')
-          ..write('fetchError: $fetchError')
+          ..write('fetchError: $fetchError, ')
+          ..write('rawTrendingJson: $rawTrendingJson')
           ..write(')'))
         .toString();
   }
@@ -3804,6 +3847,7 @@ class Trending extends DataClass implements Insertable<Trending> {
     eachEmbeddingJson,
     platform,
     fetchError,
+    rawTrendingJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -3816,7 +3860,8 @@ class Trending extends DataClass implements Insertable<Trending> {
           other.fullEmbeddingJson == this.fullEmbeddingJson &&
           other.eachEmbeddingJson == this.eachEmbeddingJson &&
           other.platform == this.platform &&
-          other.fetchError == this.fetchError);
+          other.fetchError == this.fetchError &&
+          other.rawTrendingJson == this.rawTrendingJson);
 }
 
 class TrendingsCompanion extends UpdateCompanion<Trending> {
@@ -3828,6 +3873,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
   final Value<String> eachEmbeddingJson;
   final Value<String> platform;
   final Value<String?> fetchError;
+  final Value<String?> rawTrendingJson;
   final Value<int> rowid;
   const TrendingsCompanion({
     this.id = const Value.absent(),
@@ -3838,6 +3884,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     this.eachEmbeddingJson = const Value.absent(),
     this.platform = const Value.absent(),
     this.fetchError = const Value.absent(),
+    this.rawTrendingJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TrendingsCompanion.insert({
@@ -3849,6 +3896,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     this.eachEmbeddingJson = const Value.absent(),
     this.platform = const Value.absent(),
     this.fetchError = const Value.absent(),
+    this.rawTrendingJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        addedDate = Value(addedDate);
@@ -3861,6 +3909,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     Expression<String>? eachEmbeddingJson,
     Expression<String>? platform,
     Expression<String>? fetchError,
+    Expression<String>? rawTrendingJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3873,6 +3922,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
       if (eachEmbeddingJson != null) 'each_embedding_json': eachEmbeddingJson,
       if (platform != null) 'platform': platform,
       if (fetchError != null) 'fetch_error': fetchError,
+      if (rawTrendingJson != null) 'raw_trending_json': rawTrendingJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3886,6 +3936,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     Value<String>? eachEmbeddingJson,
     Value<String>? platform,
     Value<String?>? fetchError,
+    Value<String?>? rawTrendingJson,
     Value<int>? rowid,
   }) {
     return TrendingsCompanion(
@@ -3897,6 +3948,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
       eachEmbeddingJson: eachEmbeddingJson ?? this.eachEmbeddingJson,
       platform: platform ?? this.platform,
       fetchError: fetchError ?? this.fetchError,
+      rawTrendingJson: rawTrendingJson ?? this.rawTrendingJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3928,6 +3980,9 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     if (fetchError.present) {
       map['fetch_error'] = Variable<String>(fetchError.value);
     }
+    if (rawTrendingJson.present) {
+      map['raw_trending_json'] = Variable<String>(rawTrendingJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3945,6 +4000,7 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
           ..write('eachEmbeddingJson: $eachEmbeddingJson, ')
           ..write('platform: $platform, ')
           ..write('fetchError: $fetchError, ')
+          ..write('rawTrendingJson: $rawTrendingJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5622,6 +5678,7 @@ typedef $$TrendingsTableCreateCompanionBuilder =
       Value<String> eachEmbeddingJson,
       Value<String> platform,
       Value<String?> fetchError,
+      Value<String?> rawTrendingJson,
       Value<int> rowid,
     });
 typedef $$TrendingsTableUpdateCompanionBuilder =
@@ -5634,6 +5691,7 @@ typedef $$TrendingsTableUpdateCompanionBuilder =
       Value<String> eachEmbeddingJson,
       Value<String> platform,
       Value<String?> fetchError,
+      Value<String?> rawTrendingJson,
       Value<int> rowid,
     });
 
@@ -5683,6 +5741,11 @@ class $$TrendingsTableFilterComposer
 
   ColumnFilters<String> get fetchError => $composableBuilder(
     column: $table.fetchError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawTrendingJson => $composableBuilder(
+    column: $table.rawTrendingJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5735,6 +5798,11 @@ class $$TrendingsTableOrderingComposer
     column: $table.fetchError,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get rawTrendingJson => $composableBuilder(
+    column: $table.rawTrendingJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TrendingsTableAnnotationComposer
@@ -5779,6 +5847,11 @@ class $$TrendingsTableAnnotationComposer
     column: $table.fetchError,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get rawTrendingJson => $composableBuilder(
+    column: $table.rawTrendingJson,
+    builder: (column) => column,
+  );
 }
 
 class $$TrendingsTableTableManager
@@ -5817,6 +5890,7 @@ class $$TrendingsTableTableManager
                 Value<String> eachEmbeddingJson = const Value.absent(),
                 Value<String> platform = const Value.absent(),
                 Value<String?> fetchError = const Value.absent(),
+                Value<String?> rawTrendingJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TrendingsCompanion(
                 id: id,
@@ -5827,6 +5901,7 @@ class $$TrendingsTableTableManager
                 eachEmbeddingJson: eachEmbeddingJson,
                 platform: platform,
                 fetchError: fetchError,
+                rawTrendingJson: rawTrendingJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5839,6 +5914,7 @@ class $$TrendingsTableTableManager
                 Value<String> eachEmbeddingJson = const Value.absent(),
                 Value<String> platform = const Value.absent(),
                 Value<String?> fetchError = const Value.absent(),
+                Value<String?> rawTrendingJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TrendingsCompanion.insert(
                 id: id,
@@ -5849,6 +5925,7 @@ class $$TrendingsTableTableManager
                 eachEmbeddingJson: eachEmbeddingJson,
                 platform: platform,
                 fetchError: fetchError,
+                rawTrendingJson: rawTrendingJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

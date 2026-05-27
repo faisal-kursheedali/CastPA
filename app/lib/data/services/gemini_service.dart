@@ -250,7 +250,7 @@ You are a social media trend analyst. List the currently popular trending topics
 
 Rules:
 - Return 15-20 terms total
-- Lowercase with underscores for spaces (e.g. "generative_ai", "open_source")
+- Lowercase with spaces (e.g. "generative ai", "open source")
 - Include a mix: broad topics, tools, movements, and community hashtags
 - Return ONLY a valid JSON array of strings, nothing else
 ''';

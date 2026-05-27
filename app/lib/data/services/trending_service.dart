@@ -41,11 +41,13 @@ class TrendingService {
       categoryNames,
     );
 
+    List<String> rawTrendingTopics = [];
     List<String> trendTopics = [];
     Map<String, List<String>> categoryTopics = {};
 
     try {
-      trendTopics = await globalFuture;
+      rawTrendingTopics = await globalFuture;
+      trendTopics = _normaliseTopics(rawTrendingTopics);
     } catch (e) {
       errors.add('Trend fetch failed: $e');
     }
@@ -73,9 +75,9 @@ class TrendingService {
     // Embed locally using MiniLM (or empty if model not yet added).
     List<double> fullEmbedding = [];
     final List<List<double>> eachEmbedding = [];
-    if (trendTopics.isNotEmpty) {
-      fullEmbedding = await _embeddingService.embed(trendTopics.join(' '));
-      for (final topic in trendTopics) {
+    if (rawTrendingTopics.isNotEmpty) {
+      fullEmbedding = await _embeddingService.embed(rawTrendingTopics.join(' '));
+      for (final topic in rawTrendingTopics) {
         final v = await _embeddingService.embed(topic);
         eachEmbedding.add(v);
       }
@@ -84,6 +86,7 @@ class TrendingService {
     final trending = Trending(
       id: _uuid.v4(),
       trendTopics: trendTopics,
+      rawTrendingTopics: rawTrendingTopics,
       categoryTopics: categoryTopics,
       addedDate: DateTime.now(),
       fullEmbedding: fullEmbedding,
@@ -106,6 +109,7 @@ class TrendingService {
 
   /// Google Trends daily RSS — no API key required.
   /// Filters to topics relevant to tech, AI, learning, and education.
+  /// Returns raw topic strings before any transformation.
   Future<List<String>> _fetchFromGoogleTrendsRss() async {
     try {
       final uri = Uri.parse(
@@ -143,15 +147,17 @@ class TrendingService {
       }).toList();
 
       // If nothing matches the filter, return top 15 general trends.
-      final results =
-          filtered.isNotEmpty ? filtered : allTitles.take(15).toList();
-
-      return results
-          .map((t) => t.toLowerCase().replaceAll(RegExp(r'\s+'), '_'))
+      // Lowercase only — no other transformation applied here.
+      return (filtered.isNotEmpty ? filtered : allTitles.take(15).toList())
+          .map((t) => t.toLowerCase())
           .toSet()
           .toList();
     } catch (_) {
       return [];
     }
   }
+
+  /// Normalises raw topic strings: lowercase and spaces → underscores.
+  List<String> _normaliseTopics(List<String> raw) =>
+      raw.map((t) => t.toLowerCase().replaceAll(RegExp(r'\s+'), '_')).toList();
 }

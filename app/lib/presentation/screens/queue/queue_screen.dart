@@ -8,6 +8,7 @@ import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/category.dart';
+import 'package:castpa/presentation/screens/queue/trend_score_screen.dart';
 
 enum _SortMode { date, trend }
 
@@ -204,6 +205,16 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
+          if (widget.status == PostStatus.pending ||
+              widget.status == PostStatus.partialPublished)
+            IconButton(
+              icon: const Icon(Icons.insights_outlined),
+              tooltip: 'Trend Score',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrendScoreScreen()),
+              ),
+            ),
           IconButton(
             icon: Icon(_isTableView ? Icons.list : Icons.table_rows_outlined),
             tooltip: _isTableView ? 'List view' : 'Table view',
@@ -264,18 +275,33 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 final cats = categoriesAsync.valueOrNull ?? [];
                 var filtered = _applyFilters(posts, cats);
                 filtered = _applySort(filtered);
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No posts here',
-                      style: TextStyle(color: Colors.grey),
+                return Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      child: Text(
+                        '${filtered.length} ${filtered.length == 1 ? 'post' : 'posts'}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  );
-                }
-                if (_isTableView) {
-                  return _PostTable(posts: filtered, categories: cats);
-                }
-                return _PostList(posts: filtered, categories: cats);
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No posts here',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : _isTableView
+                              ? _PostTable(posts: filtered, categories: cats)
+                              : _PostList(posts: filtered, categories: cats),
+                    ),
+                  ],
+                );
               },
             ),
           ),

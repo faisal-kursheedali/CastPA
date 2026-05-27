@@ -13,6 +13,7 @@ class TrendingRepositoryImpl implements TrendingRepository {
     return domain.Trending(
       id: row.id,
       trendTopics: parseStringList(row.trendTopicsJson),
+      rawTrendingTopics: parseStringList(row.rawTrendingJson ?? '[]'),
       categoryTopics: parseStringMap(row.categoryTopicsJson),
       addedDate: row.addedDate,
       fullEmbedding: parseDoubleList(row.fullEmbeddingJson),
@@ -37,6 +38,7 @@ class TrendingRepositoryImpl implements TrendingRepository {
     await _db.into(_db.trendings).insert(TrendingsCompanion(
       id: Value(trending.id),
       trendTopicsJson: Value(encodeStringList(trending.trendTopics)),
+      rawTrendingJson: Value(encodeStringList(trending.rawTrendingTopics)),
       categoryTopicsJson: Value(encodeStringMap(trending.categoryTopics)),
       addedDate: Value(trending.addedDate),
       fullEmbeddingJson: Value(encodeDoubleList(trending.fullEmbedding)),
