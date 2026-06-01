@@ -240,6 +240,60 @@ Return ONLY the JSON object, nothing else.
     }
   }
 
+  /// Takes raw Hacker News story titles and extracts clean tech/AI topic keywords.
+  Future<List<String>> extractKeywordsFromTitles(List<String> titles) async {
+    if (apiKey.isEmpty || titles.isEmpty) return [];
+
+    final titlesText = titles.map((t) => '- $t').join('\n');
+    final prompt = '''
+You are a tech trend analyst. From the following Hacker News story titles, extract the key technology and AI topics being discussed.
+
+Titles:
+$titlesText
+
+Rules:
+- Return only topics relevant to: AI, software engineering, programming, cloud, startups, education, research
+- Each topic should be a short phrase (2-4 words max), lowercase (e.g. "llm agents", "open source ai")
+- Ignore politics, sports, entertainment, food, crime
+- Return 10-20 topics max
+- Return ONLY a valid JSON array of strings, nothing else
+''';
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/models/$_model:generateContent?key=$apiKey'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': prompt},
+                  ],
+                },
+              ],
+              'generationConfig': {'temperature': 0.2, 'maxOutputTokens': 512},
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode != 200) return [];
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final text =
+          body['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+      if (text == null) return [];
+
+      final arrayMatch = RegExp(r'\[[\s\S]*\]').firstMatch(text);
+      if (arrayMatch == null) return [];
+
+      final parsed = jsonDecode(arrayMatch.group(0)!) as List;
+      return parsed.map((e) => e.toString()).toSet().toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Returns globally trending topics in tech, AI, learning, and education —
   /// not tied to any specific user category. Used as fallback when Google Trends RSS fails.
   Future<List<String>> fetchGlobalTrendTopics() async {

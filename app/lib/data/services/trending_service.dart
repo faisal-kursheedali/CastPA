@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'package:castpa/domain/entities/trending.dart';
@@ -11,7 +12,6 @@ class TrendingService {
   final CategoryRepository _categoryRepo;
   final GeminiService _geminiService;
   final EmbeddingService _embeddingService;
-
   static const _uuid = Uuid();
 
   TrendingService(
@@ -76,9 +76,11 @@ class TrendingService {
     List<double> fullEmbedding = [];
     final List<List<double>> eachEmbedding = [];
     if (rawTrendingTopics.isNotEmpty) {
-      fullEmbedding = await _embeddingService.embed(rawTrendingTopics.join(' '));
+      fullEmbedding = await _embeddingService.embedChunked(
+        rawTrendingTopics.join(' '),
+      );
       for (final topic in rawTrendingTopics) {
-        final v = await _embeddingService.embed(topic);
+        final v = await _embeddingService.embedChunked(topic);
         eachEmbedding.add(v);
       }
     }
@@ -99,21 +101,51 @@ class TrendingService {
     return trending;
   }
 
-  /// Fetches global trending topics from Google Trends RSS (tech/edu/AI filtered).
-  /// Falls back to Gemini-generated global trends if the RSS call fails.
+  /// Fetches dev.to trending article tags directly as topics — no processing needed.
+  /// Falls back to HN titles → Gemini → Gemini global topics.
   Future<List<String>> _fetchGlobalTrendTopics() async {
-    final googleResults = await _fetchFromGoogleTrendsRss();
-    if (googleResults.isNotEmpty) return googleResults;
+    final devToTags = await _fetchFromDevTo();
+    if (devToTags.isNotEmpty) return devToTags;
+
+    // Fallback: HN titles → Gemini keyword extraction
+    final hnTitles = await _fetchFromHackerNews();
+    if (hnTitles.isNotEmpty) {
+      final keywords = await _geminiService.extractKeywordsFromTitles(hnTitles);
+      if (keywords.isNotEmpty) return keywords;
+    }
+
     return _geminiService.fetchGlobalTrendTopics();
   }
 
-  /// Google Trends daily RSS — no API key required.
-  /// Filters to topics relevant to tech, AI, learning, and education.
-  /// Returns raw topic strings before any transformation.
-  Future<List<String>> _fetchFromGoogleTrendsRss() async {
+  /// Fetches top trending articles from dev.to and returns tags directly as topics.
+  /// No API key required, no Gemini processing needed.
+  Future<List<String>> _fetchFromDevTo() async {
+    try {
+      final uri = Uri.parse('https://dev.to/api/articles?top=50&per_page=70');
+      final response = await http
+          .get(uri, headers: {'User-Agent': 'CastPA/1.0'})
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) return [];
+
+      final articles = jsonDecode(response.body) as List<dynamic>;
+
+      return articles
+          .expand((a) => (a['tag_list'] as List<dynamic>? ?? []))
+          .map((t) => t.toString().toLowerCase().trim())
+          .where((t) => t.isNotEmpty)
+          .toSet()
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Fetches current front-page story titles from Hacker News via Algolia API.
+  Future<List<String>> _fetchFromHackerNews() async {
     try {
       final uri = Uri.parse(
-        'https://trends.google.com/trends/trendingsearches/daily/rss?geo=US',
+        'https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30',
       );
       final response = await http
           .get(uri, headers: {'User-Agent': 'CastPA/1.0'})
@@ -121,36 +153,64 @@ class TrendingService {
 
       if (response.statusCode != 200) return [];
 
-      final titleMatches = RegExp(
-        r'<item>.*?<title><!\[CDATA\[(.*?)\]\]></title>',
-        dotAll: true,
-      ).allMatches(response.body);
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final hits = body['hits'] as List<dynamic>? ?? [];
 
-      final allTitles = titleMatches
-          .map((m) => m.group(1)?.trim() ?? '')
+      return hits
+          .map((h) => (h['title'] as String? ?? '').trim())
           .where((t) => t.isNotEmpty)
-          .toList();
-
-      if (allTitles.isEmpty) return [];
-
-      // Keep only topics in tech, AI, learning, and education space.
-      const relevantKeywords = {
-        'ai', 'ml', 'tech', 'software', 'code', 'coding', 'programming',
-        'developer', 'engineering', 'data', 'cloud', 'open source',
-        'learning', 'education', 'course', 'tutorial', 'university',
-        'research', 'science', 'startup', 'product',
-      };
-
-      final filtered = allTitles.where((title) {
-        final lower = title.toLowerCase();
-        return relevantKeywords.any((kw) => lower.contains(kw));
-      }).toList();
-
-      // If nothing matches the filter, return top 15 general trends.
-      // Lowercase only — no other transformation applied here.
-      return (filtered.isNotEmpty ? filtered : allTitles.take(15).toList())
           .map((t) => t.toLowerCase())
           .toSet()
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Google Trends RSS — kept for future use when Google restores category filtering.
+  /// Currently not called since category params are ignored by the new endpoint.
+  /// Fetches Google Trends RSS from tech/science/education category feeds directly.
+  /// Using category-specific feeds means Google filters out politics, sports,
+  /// entertainment at source — no manual keyword filtering needed.
+  // ignore: unused_element
+  Future<List<String>> _fetchFromGoogleTrendsRss() async {
+    // Category codes: Science & Tech (5), Computers & Electronics (299),
+    // Internet & Telecom (174), Education (958).
+    const categories = ['5', '299', '174', '958'];
+
+    final results = await Future.wait(
+      categories.map((cat) => _fetchRssCategory(cat)),
+    );
+
+    final all = results
+        .expand((topics) => topics)
+        .map((t) => t.toLowerCase().trim())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .toList();
+
+    return all;
+  }
+
+  /// Fetches a single Google Trends RSS category feed and returns raw titles.
+  Future<List<String>> _fetchRssCategory(String cat) async {
+    try {
+      final uri = Uri.parse(
+        'https://trends.google.com/trends/trendingsearches/daily/rss?geo=US&cat=$cat',
+      );
+      final response = await http
+          .get(uri, headers: {'User-Agent': 'CastPA/1.0'})
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) return [];
+
+      return RegExp(
+            r'<item>.*?<title><!\[CDATA\[(.*?)\]\]></title>',
+            dotAll: true,
+          )
+          .allMatches(response.body)
+          .map((m) => m.group(1)?.trim() ?? '')
+          .where((t) => t.isNotEmpty)
           .toList();
     } catch (_) {
       return [];

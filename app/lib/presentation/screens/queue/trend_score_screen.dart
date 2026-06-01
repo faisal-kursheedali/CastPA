@@ -167,106 +167,116 @@ class _TrendScoreScreenState extends ConsumerState<TrendScoreScreen> {
                   child: Text(_error!, textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.grey)),
                 ))
-              : Column(
-                  children: [
+              : CustomScrollView(
+                  slivers: [
                     // ── Status tabs ───────────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                      child: SegmentedButton<PostStatus>(
-                        expandedInsets: EdgeInsets.zero,
-                        segments: _statuses.map((s) => ButtonSegment(
-                          value: s,
-                          label: Text(s.displayName, style: const TextStyle(fontSize: 12)),
-                        )).toList(),
-                        selected: {_selectedStatus},
-                        onSelectionChanged: (val) =>
-                            setState(() => _selectedStatus = val.first),
-                        style: const ButtonStyle(
-                          visualDensity: VisualDensity.compact,
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: SegmentedButton<PostStatus>(
+                          expandedInsets: EdgeInsets.zero,
+                          segments: _statuses.map((s) => ButtonSegment(
+                            value: s,
+                            label: Text(s.displayName, style: const TextStyle(fontSize: 12)),
+                          )).toList(),
+                          selected: {_selectedStatus},
+                          onSelectionChanged: (val) =>
+                              setState(() => _selectedStatus = val.first),
+                          style: const ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                          ),
                         ),
                       ),
                     ),
 
                     // ── Circular progress + threshold field ───────────────
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          child: Row(
-                            children: [
-                              // Circular progress
-                              _CircularScore(pct: _aboveThresholdPct),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${(_aboveThresholdPct * 100).toStringAsFixed(0)}% of posts above threshold',
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        fontWeight: FontWeight.w600,
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                _CircularScore(pct: _aboveThresholdPct),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${(_aboveThresholdPct * 100).toStringAsFixed(0)}% of posts above threshold',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${_currentScored.where((e) => e.score >= _threshold).length} of ${_currentScored.length} posts',
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${_currentScored.where((e) => e.score >= _threshold).length} of ${_currentScored.length} posts',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              // Threshold field
-                              SizedBox(
-                                width: 72,
-                                child: TextField(
-                                  controller: _thresholdCtrl,
-                                  keyboardType: TextInputType.number,
-                                  textAlign: TextAlign.center,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Min %',
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ],
                                   ),
-                                  onChanged: (v) {
-                                    setState(() {});
-                                    _saveThreshold(v);
-                                  },
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: 72,
+                                  child: TextField(
+                                    controller: _thresholdCtrl,
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Min %',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    ),
+                                    onChanged: (v) {
+                                      setState(() {});
+                                      _saveThreshold(v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
 
                     // ── Trending topics box ───────────────────────────────
-                    _TrendingTopicsBox(trending: _trending!),
+                    SliverToBoxAdapter(
+                      child: _TrendingTopicsBox(trending: _trending!),
+                    ),
 
                     // ── Count label ───────────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '${_currentScored.length} ${_currentScored.length == 1 ? 'post' : 'posts'}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${_currentScored.length} ${_currentScored.length == 1 ? 'post' : 'posts'}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                     ),
 
                     // ── Score list ────────────────────────────────────────
-                    Expanded(
-                      child: _currentScored.isEmpty
-                          ? const Center(child: Text('No posts', style: TextStyle(color: Colors.grey)))
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                    _currentScored.isEmpty
+                        ? const SliverFillRemaining(
+                            child: Center(
+                              child: Text('No posts', style: TextStyle(color: Colors.grey)),
+                            ),
+                          )
+                        : SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            sliver: SliverList.builder(
                               itemCount: _currentScored.length,
                               itemBuilder: (ctx, i) {
                                 final item = _currentScored[i];
@@ -278,7 +288,7 @@ class _TrendScoreScreenState extends ConsumerState<TrendScoreScreen> {
                                 );
                               },
                             ),
-                    ),
+                          ),
                   ],
                 ),
     );

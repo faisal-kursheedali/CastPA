@@ -307,22 +307,14 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     try {
       final embService = ref.read(embeddingServiceProvider);
 
-      // Reserve ~80 tokens for content (~320 chars) + ~40 tokens for tags (~160 chars).
-      final rawContent = post.twitterContent ?? post.linkedinContent!;
-      final contentPart = rawContent.length > 320
-          ? rawContent.substring(0, 320)
-          : rawContent;
+      final rawContent = post.linkedinContent ?? post.twitterContent!;
 
       final allTags = post.postBaseTags.join(' ');
-      final tagPart = allTags.length > 160
-          ? allTags.substring(0, 160)
-          : allTags;
 
-      final contentForEmbedding = tagPart.isNotEmpty
-          ? '$contentPart $tagPart'
-          : contentPart;
+      // Append all tags to full content before chunking
+      final contentWithTags = allTags.isNotEmpty ? '$rawContent $allTags' : rawContent;
 
-      final vec = await embService.embed(contentForEmbedding);
+      final vec = await embService.embedChunked(contentWithTags);
       final embedding = vec.isNotEmpty ? vec.join(',') : post.embedding;
 
       final updated = post.copyWith(
@@ -339,6 +331,7 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
       return null;
     }
   }
+
 
   Future<bool> discardIfEmpty() async {
     if (_isNew && !state.post.hasContent) return true;
