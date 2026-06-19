@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:castpa/app.dart';
 import 'package:castpa/application/providers/database_provider.dart';
+import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/data/database/app_database.dart';
 import 'package:castpa/data/database/local_database.dart';
 import 'package:castpa/data/services/bootstrap_service.dart';
@@ -75,11 +76,33 @@ class _AppRoot extends StatefulWidget {
   State<_AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<_AppRoot> {
+class _AppRootState extends State<_AppRoot> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.syncService?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _clearShareFolder();
+    }
+  }
+
+  void _clearShareFolder() {
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      final fileService = container.read(mediaFileServiceProvider);
+      fileService.clearAndPrepareShareFolder();
+    } catch (_) {}
   }
 
   @override

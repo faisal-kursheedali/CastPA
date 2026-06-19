@@ -1,6 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:castpa/data/services/media_file_service.dart';
+import 'package:castpa/presentation/widgets/common/media_item_widget.dart';
 import 'package:castpa/presentation/widgets/preview/linkable_text.dart';
 
 class LinkedInPreviewCard extends StatelessWidget {
@@ -137,25 +136,7 @@ class _MediaPreviewState extends State<_MediaPreview> {
     );
   }
 
-  Widget _mediaWidget(String path) {
-    final isImg = MediaFileService.isImage(path);
-    if (isImg) {
-      return Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        errorBuilder: (ctx, e, s) => _videoPlaceholder(),
-      );
-    }
-    return _videoPlaceholder();
-  }
-
-  Widget _videoPlaceholder() {
-    return Container(
-      color: Colors.black,
-      child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white, size: 48)),
-    );
-  }
+  Widget _mediaWidget(String path) => MediaItemWidget(path: path);
 }
 
 class _ActionItem extends StatelessWidget {

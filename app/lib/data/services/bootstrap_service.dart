@@ -50,9 +50,13 @@ class BootstrapService {
   }
 
   Future<void> ensureMediaFolder(String syncFolderPath) async {
-    final mediaDir = Directory(p.join(syncFolderPath, 'media'));
+    final mediaDir = Directory(p.join(syncFolderPath, '.media'));
     if (!mediaDir.existsSync()) {
       await mediaDir.create(recursive: true);
+    }
+    final shareDir = Directory(p.join(syncFolderPath, 'share'));
+    if (!shareDir.existsSync()) {
+      await shareDir.create(recursive: true);
     }
   }
 
@@ -79,5 +83,5 @@ class BootstrapService {
     return p.join(dir.path, 'castpa.db');
   }
 
-  String mediaFolderPath(String syncFolderPath) => p.join(syncFolderPath, 'media');
+  String mediaFolderPath(String syncFolderPath) => p.join(syncFolderPath, '.media');
 }

@@ -6,12 +6,18 @@ class PolishResult {
   final String? twitterContent;
   final List<String> tags;
   final String? error;
+  final String? hookType;
+  final String? structureUsed;
+  final bool? endsWithQuestion;
 
   const PolishResult({
     this.linkedinContent,
     this.twitterContent,
     required this.tags,
     this.error,
+    this.hookType,
+    this.structureUsed,
+    this.endsWithQuestion,
   });
 
   bool get hasError => error != null;
@@ -34,10 +40,27 @@ class GeminiService {
 
   GeminiService(this.apiKey);
 
+  static const _hookPatterns = {
+    'contrarian': 'Pattern: [Common practice] is wrong. Here\'s why.',
+    'curiosity':  'Pattern: Most [audience] miss this about [topic].',
+    'fear':       'Pattern: This [mistake] will [consequence].',
+    'stat':       'Pattern: [Number]% of [audience] don\'t know [fact].',
+    'aspiration': 'Pattern: [Small change] → [big result].',
+  };
+
+  static const _structureDetails = {
+    'pas':        'Problem → Agitate → Solution.',
+    'bab':        'Before → After → Bridge.',
+    'contrarian': 'Bold claim → Supporting points → Takeaway.',
+  };
+
   Future<PolishResult> polishPost({
     required String dump,
     required bool forLinkedIn,
     required bool forX,
+    String hookType = 'auto',
+    String structure = 'auto',
+    String endWithQuestion = 'auto',
   }) async {
     if (apiKey.isEmpty) {
       return const PolishResult(
@@ -46,28 +69,64 @@ class GeminiService {
       );
     }
 
-    final platforms = [
-      if (forLinkedIn) 'LinkedIn',
-      if (forX) 'X (Twitter)',
-    ].join(', ');
+    final hookInstruction = hookType == 'auto'
+        ? 'Pick best hook type for content: contrarian, curiosity, fear, stat, or aspiration.'
+        : 'Must use $hookType hook. ${_hookPatterns[hookType] ?? ''}';
 
-    final prompt =
-        '''
-You are a professional content writer. Transform the raw dump below into polished social media posts.
+    final structureInstruction = structure == 'auto'
+        ? 'Pick best structure: PAS, BAB, or Contrarian.'
+        : 'Must use ${structure.toUpperCase()}. ${_structureDetails[structure] ?? ''}';
+
+    final questionInstruction = endWithQuestion == 'auto'
+        ? 'End with question only if it fits naturally.'
+        : endWithQuestion == 'yes'
+            ? 'Always end with a question to drive comments.'
+            : 'Do not end with a question.';
+
+    final prompt = '''
+You are a developer content writer for LinkedIn and X (Twitter).
 
 Raw dump: """$dump"""
 
-Instructions:
-- Write for: $platforms
-${forLinkedIn ? '- LinkedIn: Professional, engaging, up to 3000 characters, include relevant hashtags at end' : ''}
-${forX ? '- X (Twitter): Concise, punchy, max 280 characters, include 1-2 hashtags inline' : ''}
-- Extract 3-6 relevant post-specific tags (without # symbol) from the content
+CONTENT RULES:
+- Hook: first 1-2 lines only, max 12 words
+  $hookInstruction
+- Structure: entire post follows one structure — DO NOT write structure labels (Before:/After:/Bridge:/Problem:/Solution:/etc.) in the post
+  $structureInstruction
+- Emoji bullets only (✅ 🔹 ⚡ →), no markdown
+- Short paragraphs, max 2-3 lines, jump lines between them
+- No hashtags anywhere in content
+- If dump contains a link, place it near end after main content
+- $questionInstruction
 
-Return ONLY valid JSON in this exact format:
+${forLinkedIn ? '''LINKEDIN:
+- First 210 characters must contain hook only
+- Optimal length: 900-1200 characters''' : ''}
+
+${forX ? '''X (TWITTER):
+- Max 220 characters
+- Hook: first 1-2 words, max 8 words
+- Condense full LinkedIn post into one punchy thought
+- If dump has link, place at end
+- $questionInstruction''' : ''}
+
+Extract 3-10 tags tightly specific to this post's content.
+- Minimum 3, maximum 10
+- Must be specific to what this post is actually about — not the platform, industry, or broad field
+- No generic single-word tags (learning, tips, growth, career, success)
+- No platform tags (blogging, medium, writing, linkedin, twitter)
+- No broad category tags (tech, programming, software, engineering)
+- Lowercase, underscores for spaces (e.g. system_design, react_hooks)
+- Must be terms a reader would actually search for
+
+Return ONLY valid JSON, no extra text:
 {
   "linkedin_content": ${forLinkedIn ? '"..."' : 'null'},
   "twitter_content": ${forX ? '"..."' : 'null'},
-  "tags": ["tag1", "tag2"]
+  "tags": ["tag1", "tag2", "tag3", "...up to 10"],
+  "hook_type": "detected hook type",
+  "structure_used": "PAS|BAB|Contrarian",
+  "ends_with_question": true
 }
 ''';
 
@@ -123,6 +182,9 @@ Return ONLY valid JSON in this exact format:
         linkedinContent: parsed['linkedin_content'] as String?,
         twitterContent: parsed['twitter_content'] as String?,
         tags: tags,
+        hookType: parsed['hook_type'] as String?,
+        structureUsed: parsed['structure_used'] as String?,
+        endsWithQuestion: parsed['ends_with_question'] as bool?,
       );
     } catch (e) {
       print('Error in polishPost: $e');

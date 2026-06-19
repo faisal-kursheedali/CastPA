@@ -18,13 +18,13 @@ import 'package:castpa/data/services/media_file_service.dart';
 final _mediaFolderPathProvider = FutureProvider<String>((ref) async {
   if (Platform.isAndroid) {
     final dir = await getApplicationDocumentsDirectory();
-    final mediaDir = Directory(p.join(dir.path, 'media'));
+    final mediaDir = Directory(p.join(dir.path, '.media'));
     await mediaDir.create(recursive: true);
     return mediaDir.path;
   }
   final config = ref.watch(bootstrapConfigProvider).valueOrNull;
   final syncFolder = config?.syncFolderPath ?? '';
-  return syncFolder.isEmpty ? '' : p.join(syncFolder, 'media');
+  return syncFolder.isEmpty ? '' : p.join(syncFolder, '.media');
 });
 
 final geminiServiceProvider = Provider<GeminiService>((ref) {

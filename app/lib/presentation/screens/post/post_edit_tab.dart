@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -11,6 +10,7 @@ import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/domain/entities/category.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/media_item.dart';
+import 'package:castpa/presentation/widgets/common/media_item_widget.dart';
 import 'package:castpa/presentation/widgets/post/tag_chips_editor.dart';
 
 class PostEditTab extends ConsumerStatefulWidget {
@@ -34,6 +34,43 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
   late TextEditingController _linkCtrl;
   bool _initialized = false;
   int _xTapCount = 0;
+
+  // Polish config
+  bool _polishConfigOpen = false;
+  String _hookType = 'auto';
+  String _structure = 'auto';
+  String _endWithQuestion = 'auto';
+
+  static const _hookSuggestions = {
+    'fear': 'pas',
+    'aspiration': 'bab',
+    'contrarian': 'contrarian',
+  };
+  static const _structureSuggestions = {
+    'pas': 'fear',
+    'bab': 'aspiration',
+    'contrarian': 'contrarian',
+  };
+
+  void _onHookChanged(String? value) {
+    if (value == null) return;
+    setState(() {
+      _hookType = value;
+      if (value != 'auto' && _hookSuggestions.containsKey(value)) {
+        _structure = _hookSuggestions[value]!;
+      }
+    });
+  }
+
+  void _onStructureChanged(String? value) {
+    if (value == null) return;
+    setState(() {
+      _structure = value;
+      if (value != 'auto' && _structureSuggestions.containsKey(value)) {
+        _hookType = _structureSuggestions[value]!;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -264,8 +301,77 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
             readOnly: widget.readOnly,
           ),
           const SizedBox(height: 24),
-          // Polish button
+          // Polish config + button
           if (!widget.readOnly && !widget.tagOnlyEdit) ...[
+            // Collapsible config header
+            InkWell(
+              onTap: () => setState(() => _polishConfigOpen = !_polishConfigOpen),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(_polishConfigOpen ? Icons.expand_less : Icons.expand_more,
+                        size: 18, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text('Polish Configuration',
+                        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary)),
+                  ],
+                ),
+              ),
+            ),
+            if (_polishConfigOpen) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                ),
+                child: Column(
+                  children: [
+                    _PolishDropdown(
+                      label: 'Hook',
+                      value: _hookType,
+                      items: const {
+                        'auto': 'Auto (AI picks best)',
+                        'contrarian': 'Contrarian',
+                        'curiosity': 'Curiosity',
+                        'fear': 'Fear',
+                        'stat': 'Stat',
+                        'aspiration': 'Aspiration',
+                      },
+                      onChanged: _onHookChanged,
+                    ),
+                    const SizedBox(height: 10),
+                    _PolishDropdown(
+                      label: 'Structure',
+                      value: _structure,
+                      items: const {
+                        'auto': 'Auto (AI picks best)',
+                        'pas': 'PAS — Problem → Agitate → Solution',
+                        'bab': 'BAB — Before → After → Bridge',
+                        'contrarian': 'Contrarian — Claim → Points → Takeaway',
+                      },
+                      onChanged: _onStructureChanged,
+                    ),
+                    const SizedBox(height: 10),
+                    _PolishDropdown(
+                      label: 'End with question',
+                      value: _endWithQuestion,
+                      items: const {
+                        'auto': 'Auto (if it fits naturally)',
+                        'yes': 'Yes — always',
+                        'no': 'No — never',
+                      },
+                      onChanged: (v) => setState(() => _endWithQuestion = v ?? 'auto'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (editState.polishError != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -286,7 +392,11 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: isPolishing ? null : () => ref.read(postEditProvider.notifier).polish(),
+                onPressed: isPolishing ? null : () => ref.read(postEditProvider.notifier).polish(
+                  hookType: _hookType,
+                  structure: _structure,
+                  endWithQuestion: _endWithQuestion,
+                ),
                 icon: isPolishing
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.auto_awesome),
@@ -424,11 +534,14 @@ class _MediaSection extends ConsumerWidget {
             ),
           );
           return;
-        case PickFileSuccess(:final item):
+        case PickFileSuccess(:final items):
           final mediaRepo = ref.read(mediaRepositoryProvider);
-          await mediaRepo.addMedia(item);
           final currentIds = ref.read(postEditProvider).post.mediaIds;
-          final ids = List<String>.from(currentIds)..add(item.id);
+          final ids = List<String>.from(currentIds);
+          for (final item in items) {
+            await mediaRepo.addMedia(item);
+            ids.add(item.id);
+          }
           ref.read(postEditProvider.notifier).updateMediaIds(ids);
       }
     } catch (e) {
@@ -438,7 +551,8 @@ class _MediaSection extends ConsumerWidget {
 
   Future<void> _pickFromLibrary(BuildContext context, WidgetRef ref) async {
     final fileService = ref.read(mediaFileServiceProvider);
-    final allMedia = await ref.read(mediaRepositoryProvider).getAllMedia();
+    final allMedia = await ref.read(mediaRepositoryProvider).getAllMedia()
+      ..sort((a, b) => b.addedDate.compareTo(a.addedDate));
     if (!context.mounted) return;
 
     final currentIds = ref.read(postEditProvider).post.mediaIds;
@@ -467,21 +581,9 @@ class _MediaThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImg = MediaFileService.isImage(item.storedFilename);
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: isImg
-              ? Image.file(
-                  File(filePath),
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, e, s) => _placeholder(isImg),
-                )
-              : _placeholder(isImg),
-        ),
+        MediaThumbWidget(path: filePath, size: 72),
         if (onRemove != null)
           Positioned(
             top: 2,
@@ -496,18 +598,6 @@ class _MediaThumb extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _placeholder(bool isImg) {
-    return Container(
-      width: 72,
-      height: 72,
-      color: Colors.grey.shade200,
-      child: Icon(
-        isImg ? Icons.image_outlined : Icons.videocam_outlined,
-        color: Colors.grey,
-      ),
     );
   }
 }
@@ -528,12 +618,12 @@ class _MediaLibraryDialog extends StatefulWidget {
 }
 
 class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
-  late Set<String> _selectedIds;
+  late List<String> _selectedIds;
 
   @override
   void initState() {
     super.initState();
-    _selectedIds = Set.from(widget.currentIds);
+    _selectedIds = List.from(widget.currentIds);
   }
 
   @override
@@ -555,8 +645,8 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
                 itemBuilder: (_, i) {
                   final item = widget.allMedia[i];
                   final selected = _selectedIds.contains(item.id);
+                  final selIndex = _selectedIds.indexOf(item.id);
                   final filePath = widget.fileService.getMediaFilePath(item.storedFilename);
-                  final isImg = MediaFileService.isImage(item.storedFilename);
                   return GestureDetector(
                     onTap: () => setState(() {
                       if (selected) {
@@ -568,30 +658,31 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: isImg
-                              ? Image.file(File(filePath), fit: BoxFit.cover,
-                                  errorBuilder: (ctx, e, s) => _libraryPlaceholder(isImg))
-                              : _libraryPlaceholder(isImg),
-                        ),
-                        if (selected)
+                        MediaThumbWidget(path: filePath),
+                        if (selected) ...[
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.blue.withAlpha(100),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: Colors.blue, width: 2),
                             ),
-                            child: const Icon(Icons.check, color: Colors.white),
                           ),
-                        if (!isImg)
-                          const Align(
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(Icons.videocam, size: 16, color: Colors.white70),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: Text(
+                                '${selIndex + 1}',
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   );
@@ -601,22 +692,16 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
-          onPressed: () => Navigator.pop(
-            context,
-            widget.allMedia.where((m) => _selectedIds.contains(m.id)).toList(),
-          ),
+          onPressed: () {
+            final byId = {for (final m in widget.allMedia) m.id: m};
+            Navigator.pop(context, _selectedIds.map((id) => byId[id]).whereType<MediaItem>().toList());
+          },
           child: const Text('Select'),
         ),
       ],
     );
   }
 
-  Widget _libraryPlaceholder(bool isImg) {
-    return Container(
-      color: Colors.grey.shade300,
-      child: Icon(isImg ? Icons.image_outlined : Icons.videocam_outlined, color: Colors.grey),
-    );
-  }
 }
 
 class _TagSelectionSection extends ConsumerStatefulWidget {
@@ -842,5 +927,45 @@ class _RecordingBar extends ConsumerWidget {
     }
 
     return const SizedBox.shrink();
+  }
+}
+
+class _PolishDropdown extends StatelessWidget {
+  final String label;
+  final String value;
+  final Map<String, String> items;
+  final ValueChanged<String?> onChanged;
+
+  const _PolishDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        ),
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: value,
+            isDense: true,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(),
+            ),
+            items: items.entries
+                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))))
+                .toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
   }
 }

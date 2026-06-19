@@ -66,6 +66,7 @@ class PostPreviewTab extends ConsumerWidget {
                     !post.publishedPlatforms.contains(Platform.linkedin),
                 isAlreadyPublished: settings.copyToLinkedin &&
                     post.publishedPlatforms.contains(Platform.linkedin),
+                mediaPaths: mediaPaths,
               ),
               LinkedInPreviewCard(
                 content: post.linkedinContent!,
@@ -84,6 +85,7 @@ class PostPreviewTab extends ConsumerWidget {
                     !post.publishedPlatforms.contains(Platform.x),
                 isAlreadyPublished: settings.copyToX &&
                     post.publishedPlatforms.contains(Platform.x),
+                mediaPaths: mediaPaths,
               ),
               XPreviewCard(
                 content: post.twitterContent!,
@@ -152,6 +154,7 @@ class _PreviewHeader extends ConsumerStatefulWidget {
   final Post post;
   final bool showCopyToPlatform;
   final bool isAlreadyPublished;
+  final List<String> mediaPaths;
 
   const _PreviewHeader({
     required this.label,
@@ -160,6 +163,7 @@ class _PreviewHeader extends ConsumerStatefulWidget {
     required this.post,
     required this.showCopyToPlatform,
     this.isAlreadyPublished = false,
+    this.mediaPaths = const [],
   });
 
   @override
@@ -232,8 +236,26 @@ class _PreviewHeaderState extends ConsumerState<_PreviewHeader> {
       Platform.x => 'https://x.com/compose/tweet',
     };
 
+    // Step 1: Show loader and prepare (clipboard + share folder copy)
+    setState(() => _copyingToPlatform = true);
+    String? shareFolderPath;
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.content));
+
+      final fileService = ref.read(mediaFileServiceProvider);
+      if (widget.mediaPaths.isNotEmpty) {
+        await fileService.copyToShareFolder(widget.mediaPaths);
+        shareFolderPath = fileService.shareFolderPath;
+      }
+    } finally {
+      if (mounted) setState(() => _copyingToPlatform = false);
+    }
+
+    if (!mounted) return;
+
+    // Step 2: Show confirmation dialog after prep is done
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: context, // ignore: use_build_context_synchronously
       builder: (_) => AlertDialog(
         title: Text(isRepublish ? 'Republish to $platformName?' : 'Copy to $platformName'),
         content: Text(
@@ -241,8 +263,10 @@ class _PreviewHeaderState extends ConsumerState<_PreviewHeader> {
               ? 'This post is already published on $platformName.\n\n'
                 'Are you sure you want to open $platformName and post again? '
                 'This action will not be recorded in the app.'
-              : 'The content will be copied to your clipboard and $platformName will open.\n\n'
-                'Paste and publish the post yourself — the app will mark it as published.',
+              : 'Your text is copied to clipboard.'
+                '${shareFolderPath != null ? ' Media files are ready in the share folder.' : ''}\n\n'
+                '$platformName will open — paste and publish the post yourself. '
+                'The app will mark it as published.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -260,16 +284,13 @@ class _PreviewHeaderState extends ConsumerState<_PreviewHeader> {
 
     setState(() => _copyingToPlatform = true);
     try {
-      // 1. Copy to clipboard
-      await Clipboard.setData(ClipboardData(text: widget.content));
-
-      // 2. Open platform URL
+      // Step 3: Open platform URL
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
 
-      // 3. Mark as published — only if this is NOT a republish
+      // Step 4: Mark as published — only if this is NOT a republish
       if (!isRepublish) {
         await ref.read(publishNotifierProvider.notifier).markAsPublishedManually(
           widget.post,
@@ -281,6 +302,7 @@ class _PreviewHeaderState extends ConsumerState<_PreviewHeader> {
       }
 
       if (!mounted) return;
+
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

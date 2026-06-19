@@ -56,7 +56,10 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
       return '$content\n\n${allTags.join(' ')}';
     }
 
-    // Resolve mediaIds → absolute file paths (images only)
+    // Resolve mediaIds → absolute file paths (images only).
+    // TODO: add video upload support for both LinkedIn and X —
+    // LinkedIn requires a separate video asset registration flow (different from image URN upload),
+    // X requires chunked media upload via POST media/upload with INIT/APPEND/FINALIZE commands.
     final mediaFileService = ref.read(mediaFileServiceProvider);
     final mediaItems = await ref.read(mediaRepositoryProvider).getMediaByIds(post.mediaIds);
     final mediaFilePaths = mediaItems

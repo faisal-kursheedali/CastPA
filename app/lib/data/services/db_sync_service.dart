@@ -77,7 +77,7 @@ class DbSyncService {
       final src = File(watchedDbPath);
       if (!src.existsSync()) return;
 
-      final backupDir = Directory(p.join(src.parent.path, 'backups'));
+      final backupDir = Directory(p.join(src.parent.path, '.backups'));
       if (!backupDir.existsSync()) await backupDir.create(recursive: true);
 
       final now = DateTime.now();
@@ -101,14 +101,17 @@ class DbSyncService {
 
   Future<void> _pruneBackups(Directory backupDir) async {
     try {
-      final files = backupDir
-          .listSync()
-          .whereType<File>()
-          .where((f) =>
-              p.basename(f.path).startsWith('castpa_') &&
-              f.path.endsWith('.db'))
-          .toList()
-        ..sort((a, b) => a.path.compareTo(b.path)); // oldest first
+      final files =
+          backupDir
+              .listSync()
+              .whereType<File>()
+              .where(
+                (f) =>
+                    p.basename(f.path).startsWith('castpa_') &&
+                    f.path.endsWith('.db'),
+              )
+              .toList()
+            ..sort((a, b) => a.path.compareTo(b.path)); // oldest first
 
       while (files.length > maxBackups) {
         final oldest = files.removeAt(0);

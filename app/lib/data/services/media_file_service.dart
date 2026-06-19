@@ -8,8 +8,8 @@ import 'package:castpa/domain/entities/media_item.dart';
 sealed class PickFileResult {}
 
 class PickFileSuccess extends PickFileResult {
-  final MediaItem item;
-  PickFileSuccess(this.item);
+  final List<MediaItem> items;
+  PickFileSuccess(this.items);
 }
 
 class PickFileCancelled extends PickFileResult {}
@@ -28,6 +28,40 @@ class MediaFileService {
   final String mediaFolderPath;
 
   MediaFileService(this.mediaFolderPath);
+
+  String get shareFolderPath => p.join(p.dirname(mediaFolderPath), 'share');
+
+  Future<void> ensureShareFolder() async {
+    final dir = Directory(shareFolderPath);
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+  }
+
+  Future<void> clearAndPrepareShareFolder() async {
+    final dir = Directory(shareFolderPath);
+    if (dir.existsSync()) {
+      await for (final entity in dir.list()) {
+        await entity.delete(recursive: true);
+      }
+    } else {
+      await dir.create(recursive: true);
+    }
+  }
+
+  Future<void> copyToShareFolder(List<String> sourcePaths) async {
+    await clearAndPrepareShareFolder();
+    var index = 1;
+    for (final srcPath in sourcePaths) {
+      final src = File(srcPath);
+      if (src.existsSync()) {
+        final ext = p.extension(srcPath); // e.g. .jpg, .mp4
+        final dest = p.join(shareFolderPath, '$index$ext');
+        await src.copy(dest);
+        index++;
+      }
+    }
+  }
 
   static bool isImage(String filename) {
     final ext = p.extension(filename).replaceFirst('.', '').toLowerCase();
@@ -48,22 +82,27 @@ class MediaFileService {
     }
 
     final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
+      allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: [..._imageExtensions, ..._videoExtensions],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return PickFileCancelled();
-    final file = result.files.first;
-    final bytes = file.bytes;
-    final MediaItem item;
-    if (bytes == null) {
-      if (file.path == null) return PickFileCancelled();
-      item = await _saveFromPath(File(file.path!), file.name);
-    } else {
-      item = await _saveFromBytes(bytes, file.name);
+
+    final items = <MediaItem>[];
+    for (final file in result.files) {
+      final bytes = file.bytes;
+      final MediaItem item;
+      if (bytes == null) {
+        if (file.path == null) continue;
+        item = await _saveFromPath(File(file.path!), file.name);
+      } else {
+        item = await _saveFromBytes(bytes, file.name);
+      }
+      items.add(item);
     }
-    return PickFileSuccess(item);
+    if (items.isEmpty) return PickFileCancelled();
+    return PickFileSuccess(items);
   }
 
   Future<MediaItem> _saveFromBytes(List<int> bytes, String originalFilename) async {

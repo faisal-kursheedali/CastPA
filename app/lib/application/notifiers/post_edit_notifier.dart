@@ -219,7 +219,11 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
   Future<void> forceSave() => _save();
 
   // Polish: fill platform fields + tags from Gemini. No embedding here.
-  Future<void> polish() async {
+  Future<void> polish({
+    String hookType = 'auto',
+    String structure = 'auto',
+    String endWithQuestion = 'auto',
+  }) async {
     final post = state.post;
     if (post.dump.isEmpty) {
       state = state.copyWith(polishError: 'Please add some content to the dump first.');
@@ -241,6 +245,9 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
         dump: post.dump,
         forLinkedIn: post.selectedPlatforms.contains(Platform.linkedin),
         forX: post.selectedPlatforms.contains(Platform.x),
+        hookType: hookType,
+        structure: structure,
+        endWithQuestion: endWithQuestion,
       );
 
       if (result.hasError) {
