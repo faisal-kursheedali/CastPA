@@ -40,7 +40,6 @@ class PostPreviewTab extends ConsumerWidget {
     // Use tags already stored on the post (synced by _TagSelectionSection checkboxes)
     final allTags = [
       ...post.postBaseTags,
-      ...post.categoryBasePublishTags,
       ...post.trendsBasePublishTags,
     ];
 

@@ -54,21 +54,18 @@ class GeminiService {
     'contrarian': 'Bold claim → Supporting points → Takeaway.',
   };
 
-  Future<PolishResult> polishPost({
+  static String buildPolishPrompt({
     required String dump,
     required bool forLinkedIn,
     required bool forX,
     String hookType = 'auto',
     String structure = 'auto',
     String endWithQuestion = 'auto',
-  }) async {
-    if (apiKey.isEmpty) {
-      return const PolishResult(
-        tags: [],
-        error: 'No Gemini API key configured.',
-      );
-    }
-
+    String postTagMode = 'range',
+    int postTagMin = 3,
+    int postTagMax = 10,
+    int postTagExact = 5,
+  }) {
     final hookInstruction = hookType == 'auto'
         ? 'Pick best hook type for content: contrarian, curiosity, fear, stat, or aspiration.'
         : 'Must use $hookType hook. ${_hookPatterns[hookType] ?? ''}';
@@ -83,7 +80,7 @@ class GeminiService {
             ? 'Always end with a question to drive comments.'
             : 'Do not end with a question.';
 
-    final prompt = '''
+    return '''
 You are a developer content writer for LinkedIn and X (Twitter).
 
 Raw dump: """$dump"""
@@ -110,8 +107,8 @@ ${forX ? '''X (TWITTER):
 - If dump has link, place at end
 - $questionInstruction''' : ''}
 
-Extract 3-10 tags tightly specific to this post's content.
-- Minimum 3, maximum 10
+Extract ${postTagMode == 'exact' ? 'exactly $postTagExact' : '$postTagMin-$postTagMax'} tags tightly specific to this post's content.
+- ${postTagMode == 'exact' ? 'Must return exactly $postTagExact tags' : 'Minimum $postTagMin, maximum $postTagMax'}
 - Must be specific to what this post is actually about — not the platform, industry, or broad field
 - No generic single-word tags (learning, tips, growth, career, success)
 - No platform tags (blogging, medium, writing, linkedin, twitter)
@@ -123,12 +120,45 @@ Return ONLY valid JSON, no extra text:
 {
   "linkedin_content": ${forLinkedIn ? '"..."' : 'null'},
   "twitter_content": ${forX ? '"..."' : 'null'},
-  "tags": ["tag1", "tag2", "tag3", "...up to 10"],
+  "tags": ["tag1", "tag2", "tag3", "..."],
   "hook_type": "detected hook type",
   "structure_used": "PAS|BAB|Contrarian",
   "ends_with_question": true
 }
 ''';
+  }
+
+  Future<PolishResult> polishPost({
+    required String dump,
+    required bool forLinkedIn,
+    required bool forX,
+    String hookType = 'auto',
+    String structure = 'auto',
+    String endWithQuestion = 'auto',
+    String postTagMode = 'range',
+    int postTagMin = 3,
+    int postTagMax = 10,
+    int postTagExact = 5,
+  }) async {
+    if (apiKey.isEmpty) {
+      return const PolishResult(
+        tags: [],
+        error: 'No Gemini API key configured.',
+      );
+    }
+
+    final prompt = buildPolishPrompt(
+      dump: dump,
+      forLinkedIn: forLinkedIn,
+      forX: forX,
+      hookType: hookType,
+      structure: structure,
+      endWithQuestion: endWithQuestion,
+      postTagMode: postTagMode,
+      postTagMin: postTagMin,
+      postTagMax: postTagMax,
+      postTagExact: postTagExact,
+    );
 
     try {
       final response = await http

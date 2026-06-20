@@ -229,7 +229,8 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
   Future<void> _fetch() async {
     setState(() => _fetching = true);
     try {
-      await ref.read(trendingServiceProvider).forceFetch();
+      final settings = ref.read(settingsNotifierProvider).valueOrNull;
+      await ref.read(trendingServiceProvider).forceFetch(trendFetchCount: settings?.trendFetchCount ?? 7);
       ref.invalidate(latestTrendingProvider);
     } finally {
       if (mounted) setState(() => _fetching = false);
@@ -244,8 +245,6 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
     final isLoading = _fetching || autoFetching;
 
     final hasTrendTopics = trending != null && trending.trendTopics.isNotEmpty;
-    final hasCategoryTopics = trending != null &&
-        trending.categoryTopics.values.any((list) => list.isNotEmpty);
 
     String lastFetchLabel = 'Never fetched';
     if (trending != null) {
@@ -291,11 +290,6 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
             _ActivityRow(
               label: 'Trend Topics',
               status: isLoading ? _ActivityStatus.loading : (hasTrendTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
-            ),
-            const SizedBox(height: 6),
-            _ActivityRow(
-              label: 'Category Topics',
-              status: isLoading ? _ActivityStatus.loading : (hasCategoryTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
             ),
             if (!isLoading && trending?.fetchError != null) ...[
               const SizedBox(height: 10),

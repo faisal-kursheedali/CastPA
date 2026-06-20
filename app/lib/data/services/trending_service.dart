@@ -2,48 +2,37 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import 'package:castpa/domain/entities/trending.dart';
-import 'package:castpa/domain/repositories/category_repository.dart';
 import 'package:castpa/domain/repositories/trending_repository.dart';
 import 'package:castpa/data/services/gemini_service.dart';
 import 'package:castpa/data/services/embedding_service.dart';
 
 class TrendingService {
   final TrendingRepository _trendingRepo;
-  final CategoryRepository _categoryRepo;
   final GeminiService _geminiService;
   final EmbeddingService _embeddingService;
   static const _uuid = Uuid();
 
   TrendingService(
     this._trendingRepo,
-    this._categoryRepo,
     this._geminiService,
     this._embeddingService,
   );
 
-  Future<Trending> getOrFetchCurrentWeek() async {
+  Future<Trending> getOrFetchCurrentWeek({int trendFetchCount = 7}) async {
     final recent = await _trendingRepo.getMostRecent();
     if (recent != null && recent.isCurrentWeek) return recent;
-    return _fetchAndStore();
+    return _fetchAndStore(trendFetchCount: trendFetchCount);
   }
 
-  Future<Trending> forceFetch() => _fetchAndStore();
+  Future<Trending> forceFetch({int trendFetchCount = 7}) => _fetchAndStore(trendFetchCount: trendFetchCount);
 
-  Future<Trending> _fetchAndStore() async {
-    final categories = await _categoryRepo.getAllCategories();
-    final categoryNames = categories.map((c) => c.name).toList();
-
+  Future<Trending> _fetchAndStore({int trendFetchCount = 7}) async {
     final errors = <String>[];
 
-    // Fetch global trends and category topics in parallel.
-    final globalFuture = _fetchGlobalTrendTopics();
-    final categoryFuture = _geminiService.fetchTrendTopicsForCategories(
-      categoryNames,
-    );
+    final globalFuture = _fetchGlobalTrendTopics(trendFetchCount: trendFetchCount);
 
     List<String> rawTrendingTopics = [];
     List<String> trendTopics = [];
-    Map<String, List<String>> categoryTopics = {};
 
     try {
       rawTrendingTopics = await globalFuture;
@@ -52,22 +41,12 @@ class TrendingService {
       errors.add('Trend fetch failed: $e');
     }
 
-    try {
-      final raw = await categoryFuture;
-      categoryTopics = raw.map((k, v) => MapEntry(k.toUpperCase(), v));
-    } catch (e) {
-      errors.add('Category fetch failed: $e');
-    }
-
     if (_geminiService.apiKey.isEmpty) {
       errors.add('Gemini API key not configured');
     }
 
     if (trendTopics.isEmpty && errors.isEmpty) {
       errors.add('No trend topics returned — Gemini quota may be exhausted');
-    }
-    if (categoryTopics.isEmpty && errors.isEmpty) {
-      errors.add('No category topics returned — Gemini quota may be exhausted');
     }
 
     final platform = trendTopics.isNotEmpty ? 'google_trends+gemini' : 'gemini';
@@ -89,7 +68,7 @@ class TrendingService {
       id: _uuid.v4(),
       trendTopics: trendTopics,
       rawTrendingTopics: rawTrendingTopics,
-      categoryTopics: categoryTopics,
+      categoryTopics: const {},
       addedDate: DateTime.now(),
       fullEmbedding: fullEmbedding,
       eachEmbedding: eachEmbedding,
@@ -103,8 +82,8 @@ class TrendingService {
 
   /// Fetches dev.to trending article tags directly as topics — no processing needed.
   /// Falls back to HN titles → Gemini → Gemini global topics.
-  Future<List<String>> _fetchGlobalTrendTopics() async {
-    final devToTags = await _fetchFromDevTo();
+  Future<List<String>> _fetchGlobalTrendTopics({int trendFetchCount = 7}) async {
+    final devToTags = await _fetchFromDevTo(perPage: trendFetchCount);
     if (devToTags.isNotEmpty) return devToTags;
 
     // Fallback: HN titles → Gemini keyword extraction
@@ -119,9 +98,9 @@ class TrendingService {
 
   /// Fetches top trending articles from dev.to and returns tags directly as topics.
   /// No API key required, no Gemini processing needed.
-  Future<List<String>> _fetchFromDevTo() async {
+  Future<List<String>> _fetchFromDevTo({int perPage = 7}) async {
     try {
-      final uri = Uri.parse('https://dev.to/api/articles?top=50&per_page=70');
+      final uri = Uri.parse('https://dev.to/api/articles?top=50&per_page=$perPage');
       final response = await http
           .get(uri, headers: {'User-Agent': 'CastPA/1.0'})
           .timeout(const Duration(seconds: 10));

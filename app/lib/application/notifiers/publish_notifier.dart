@@ -35,6 +35,12 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
     final config = ref.read(bootstrapConfigProvider).valueOrNull;
     final deviceId = config?.deviceId ?? '';
 
+    if (post.categoryId == null || post.categoryId!.isEmpty) {
+      final s = const PublishState(status: PublishStatus.error, error: 'Please select a category before publishing.');
+      state = s;
+      return s;
+    }
+
     final targets = post.remainingTargets;
     if (targets.isEmpty) {
       final s = const PublishState(status: PublishStatus.error, error: 'No remaining targets.');
@@ -46,7 +52,6 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
 
     final allTags = [
       ...post.postBaseTags,
-      ...post.categoryBasePublishTags,
       ...post.trendsBasePublishTags,
     ].map((t) => t.startsWith('#') ? t : '#$t').toSet().toList();
 

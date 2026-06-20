@@ -7,6 +7,7 @@ import 'package:castpa/application/notifiers/category_notifier.dart';
 import 'package:castpa/application/notifiers/recording_notifier.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/service_providers.dart';
+import 'package:castpa/application/providers/settings_notifier.dart';
 import 'package:castpa/domain/entities/category.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/media_item.dart';
@@ -296,8 +297,6 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
           ],
           // Tag checkboxes + tags
           _TagSelectionSection(
-            selectedCategoryId: post.categoryId,
-            categories: categories,
             readOnly: widget.readOnly,
           ),
           const SizedBox(height: 24),
@@ -705,13 +704,9 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
 }
 
 class _TagSelectionSection extends ConsumerStatefulWidget {
-  final String? selectedCategoryId;
-  final List<Category> categories;
   final bool readOnly;
 
   const _TagSelectionSection({
-    required this.selectedCategoryId,
-    required this.categories,
     required this.readOnly,
   });
 
@@ -720,9 +715,7 @@ class _TagSelectionSection extends ConsumerStatefulWidget {
 }
 
 class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
-  // Resolved tags from trending data (source of truth for syncing back)
-  List<String> _resolvedCategoryTags = [];
-  List<String> _resolvedTrendTags = [];
+  bool _didInitialRagFilter = false;
 
   @override
   Widget build(BuildContext context) {
@@ -730,44 +723,33 @@ class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
     final trending = trendingAsync.valueOrNull;
     final editState = ref.watch(postEditProvider);
     final post = editState.post;
-    final includeTrending = editState.includeTrendingTags;
-    final includeCategory = editState.includeCategoryTags;
-
-    final selectedCategory = widget.selectedCategoryId == null
-        ? null
-        : widget.categories.where((c) => c.id == widget.selectedCategoryId).firstOrNull;
-
-    final categoryTags = selectedCategory == null
-        ? <String>[]
-        : (trending?.categoryTopics[selectedCategory.name.toUpperCase()] ?? []);
+    final selectedTags = editState.selectedTrendTags;
 
     final trendTags = trending?.trendTopics.map((t) => t.replaceAll(' ', '_')).toList() ?? [];
 
-    // Keep resolved tags up to date for use in callbacks
-    _resolvedCategoryTags = categoryTags;
-    _resolvedTrendTags = trendTags;
+    final settings = ref.watch(settingsNotifierProvider).valueOrNull;
 
-    // Sync resolved tags into the post whenever the source data changes,
-    // respecting the current checkbox state.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final notifier = ref.read(postEditProvider.notifier);
-      final expectedCategory = includeCategory ? categoryTags : <String>[];
-      final expectedTrend = includeTrending ? trendTags : <String>[];
-      if (expectedCategory.join() != post.categoryBasePublishTags.join()) {
-        notifier.updateCategoryBasePublishTags(expectedCategory);
-      }
-      if (expectedTrend.join() != post.trendsBasePublishTags.join()) {
-        notifier.updateTrendsBasePublishTags(expectedTrend);
-      }
-    });
-
-    final hasCategorySelected = widget.selectedCategoryId != null;
+    // On first build, always run RAG filter if post has tags (re-filters with latest trending)
+    if (!_didInitialRagFilter && post.postBaseTags.isNotEmpty && trending != null) {
+      _didInitialRagFilter = true;
+      final hasCachedEmbeddings = post.postBaseTagsEmbedding != null
+          && post.postBaseTagsEmbedding!.isNotEmpty
+          && post.postBaseTagsEmbedding != '[]';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final notifier = ref.read(postEditProvider.notifier);
+        if (hasCachedEmbeddings) {
+          final topK = settings?.trendTagsPerPost ?? 5;
+          notifier.filterTrendingTagsByRag(trending, topK: topK);
+        } else {
+          notifier.updatePostBaseTags(post.postBaseTags);
+        }
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Post base tags editor
         TagChipsEditor(
           label: 'Post Base Tags',
           tags: post.postBaseTags,
@@ -776,56 +758,83 @@ class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
         ),
         const SizedBox(height: 8),
 
-        // Trending tags checkbox
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          value: includeTrending,
-          title: const Text('Include Trending Tags'),
-          subtitle: trendTags.isEmpty ? const Text('No trending tags available', style: TextStyle(fontSize: 12)) : null,
-          enabled: !widget.readOnly && trendTags.isNotEmpty,
-          controlAffinity: ListTileControlAffinity.leading,
-          onChanged: widget.readOnly || trendTags.isEmpty
-              ? null
-              : (val) => ref
-                  .read(postEditProvider.notifier)
-                  .setIncludeTrendingTags(val ?? false, _resolvedTrendTags),
-        ),
-
-        // Category tags checkbox — only visible when a category is selected
-        if (hasCategorySelected)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            value: includeCategory,
-            title: const Text('Include Category Tags'),
-            subtitle: categoryTags.isEmpty ? const Text('No category tags available', style: TextStyle(fontSize: 12)) : null,
-            enabled: !widget.readOnly && categoryTags.isNotEmpty,
-            controlAffinity: ListTileControlAffinity.leading,
-            onChanged: widget.readOnly || categoryTags.isEmpty
-                ? null
-                : (val) => ref
-                    .read(postEditProvider.notifier)
-                    .setIncludeCategoryTags(val ?? false, _resolvedCategoryTags),
-          ),
-
-        // Show selected tag chips
-        if (includeTrending && trendTags.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          TagChipsEditor(
-            label: 'Trending Tags',
-            tags: trendTags,
-            readOnly: true,
-          ),
+        Text('Trending Tags', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 6),
+        if (trendTags.isEmpty)
+          const Text('No trending tags available', style: TextStyle(fontSize: 12, color: Colors.grey))
+        else ...[
+          // RAG Suggested tags
+          if (trendTags.any((t) => editState.ragSuggestedTags.contains(t))) ...[
+            Text('RAG Suggested', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => editState.ragSuggestedTags.contains(t)).map((tag) {
+                return Chip(
+                  label: Text('#$tag', style: const TextStyle(fontSize: 12)),
+                  onDeleted: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).removeRagSuggestedTag(tag),
+                  deleteIconColor: Colors.grey,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // User added tags
+          if (post.userAddedTrendTags.any((t) => trendTags.contains(t))) ...[
+            Text('Your Tags', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: post.userAddedTrendTags.where((t) => trendTags.contains(t)).map((tag) {
+                return Chip(
+                  label: Text('#$tag', style: const TextStyle(fontSize: 12)),
+                  onDeleted: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).removeUserTrendTag(tag),
+                  deleteIconColor: Colors.grey,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Available (unselected) tags
+          if (trendTags.any((t) => !selectedTags.contains(t))) ...[
+            Text('Available', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => !selectedTags.contains(t)).map((tag) {
+                return InputChip(
+                  label: Text('#$tag', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  selected: false,
+                  showCheckmark: false,
+                  onPressed: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).addUserTrendTag(tag),
+                  backgroundColor: Colors.grey.withValues(alpha: 0.08),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Add',
+                );
+              }).toList(),
+            ),
+          ],
         ],
-        if (hasCategorySelected && includeCategory && categoryTags.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          TagChipsEditor(
-            label: 'Category Tags',
-            tags: categoryTags,
-            readOnly: true,
+        if (post.postBaseTags.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              'Add or polish post tags to get smart tag suggestions',
+              style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
           ),
-        ],
+        const Divider(height: 16),
       ],
     );
   }

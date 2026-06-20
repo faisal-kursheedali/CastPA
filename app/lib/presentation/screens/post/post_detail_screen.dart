@@ -6,6 +6,7 @@ import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/presentation/screens/post/post_edit_tab.dart';
 import 'package:castpa/presentation/screens/post/post_preview_tab.dart';
+import 'package:castpa/presentation/widgets/common/rag_status_indicator.dart';
 import 'package:castpa/presentation/widgets/common/save_status_indicator.dart';
 
 final _postDetailProvider = FutureProvider.autoDispose.family<Post?, String>((
@@ -98,7 +99,7 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen>
         return Scaffold(
           appBar: AppBar(
             title: Text(status.displayName),
-            actions: [if (!isLocked) SaveStatusIndicator(saveState: saveState)],
+            actions: [if (!isLocked) RagStatusIndicator(ragStatus: editState.ragStatus), if (!isLocked) SaveStatusIndicator(saveState: saveState)],
             bottom: TabBar(
               controller: _tabController,
               tabs: const [

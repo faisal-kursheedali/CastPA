@@ -49,6 +49,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Publishing
   late TextEditingController _publishPerWeekCtrl;
 
+  // Trending
+  late TextEditingController _trendFetchCountCtrl;
+  late TextEditingController _trendTagsPerPostCtrl;
+
+  // Post
+  late TextEditingController _postTagMinCtrl;
+  late TextEditingController _postTagMaxCtrl;
+  late TextEditingController _postTagExactCtrl;
+
   // Unlink
   int _unlinkTapCount = 0;
   DateTime? _lastUnlinkTap;
@@ -71,6 +80,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _xClientIdCtrl = TextEditingController();
     _xClientSecretCtrl = TextEditingController();
     _publishPerWeekCtrl = TextEditingController();
+    _trendFetchCountCtrl = TextEditingController();
+    _trendTagsPerPostCtrl = TextEditingController();
+    _postTagMinCtrl = TextEditingController();
+    _postTagMaxCtrl = TextEditingController();
+    _postTagExactCtrl = TextEditingController();
   }
 
   @override
@@ -83,6 +97,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _xClientIdCtrl.dispose();
     _xClientSecretCtrl.dispose();
     _publishPerWeekCtrl.dispose();
+    _trendFetchCountCtrl.dispose();
+    _trendTagsPerPostCtrl.dispose();
+    _postTagMinCtrl.dispose();
+    _postTagMaxCtrl.dispose();
+    _postTagExactCtrl.dispose();
     super.dispose();
   }
 
@@ -171,6 +190,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Saved')));
+    }
+  }
+
+  Future<void> _savePostSettings(AppSettings current) async {
+    final min = int.tryParse(_postTagMinCtrl.text) ?? 3;
+    final max = int.tryParse(_postTagMaxCtrl.text) ?? 10;
+    final exact = int.tryParse(_postTagExactCtrl.text) ?? 5;
+    if (current.postTagMode == 'range' && max <= min) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Max must be greater than Min')),
+      );
+      return;
+    }
+    await ref.read(settingsNotifierProvider.notifier).save(
+      current.copyWith(postTagMin: min, postTagMax: max, postTagExact: exact),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved')));
+    }
+  }
+
+  Future<void> _saveTrendingSettings(AppSettings current) async {
+    final fetchCount = int.tryParse(_trendFetchCountCtrl.text) ?? 7;
+    final tagsPerPost = int.tryParse(_trendTagsPerPostCtrl.text) ?? 5;
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .save(current.copyWith(trendFetchCount: fetchCount, trendTagsPerPost: tagsPerPost));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved')));
     }
   }
 
@@ -397,6 +445,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _genModelCtrl.text = settings.genModel ?? '';
           _embedModelCtrl.text = settings.embedModel ?? '';
           _publishPerWeekCtrl.text = settings.publishPerWeek.toString();
+          _trendFetchCountCtrl.text = settings.trendFetchCount.toString();
+          _trendTagsPerPostCtrl.text = settings.trendTagsPerPost.toString();
+          _postTagMinCtrl.text = settings.postTagMin.toString();
+          _postTagMaxCtrl.text = settings.postTagMax.toString();
+          _postTagExactCtrl.text = settings.postTagExact.toString();
           _linkedInClientIdCtrl.text = settings.linkedinClientId ?? '';
           _linkedInClientSecretCtrl.text = settings.linkedinClientSecret ?? '';
           _xClientIdCtrl.text = settings.xClientId ?? '';
@@ -826,6 +879,136 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         alignment: Alignment.centerRight,
                         child: FilledButton(
                           onPressed: () => _savePublishPerWeek(settings),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Post ─────────────────────────────────────────────────
+              _SectionHeader('Post'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Post Tag Count', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Range', style: TextStyle(fontSize: 14)),
+                              value: 'range',
+                              groupValue: settings.postTagMode,
+                              onChanged: (val) => ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateWith((s) => s.copyWith(postTagMode: val)),
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Exact', style: TextStyle(fontSize: 14)),
+                              value: 'exact',
+                              groupValue: settings.postTagMode,
+                              onChanged: (val) => ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateWith((s) => s.copyWith(postTagMode: val)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (settings.postTagMode == 'range') ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _postTagMinCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Min Tags',
+                                  prefixIcon: Icon(Icons.arrow_downward),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _postTagMaxCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Max Tags',
+                                  prefixIcon: Icon(Icons.arrow_upward),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        TextField(
+                          controller: _postTagExactCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Tag Count',
+                            prefixIcon: Icon(Icons.tag),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed: () => _savePostSettings(settings),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Trending ──────────────────────────────────────────────
+              _SectionHeader('Trending'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _trendFetchCountCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Dev.to Trend Fetch Count',
+                          helperText: 'Number of articles to fetch from dev.to for trending tags',
+                          prefixIcon: Icon(Icons.trending_up),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _trendTagsPerPostCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Trend Tags Per Post',
+                          helperText: 'Number of top trending tags to auto-select via RAG per post',
+                          prefixIcon: Icon(Icons.tag),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed: () => _saveTrendingSettings(settings),
                           child: const Text('Save'),
                         ),
                       ),

@@ -43,7 +43,6 @@ final publishServiceProvider = Provider<PublishService>((ref) {
 final trendingServiceProvider = Provider<TrendingService>((ref) {
   return TrendingService(
     ref.watch(trendingRepositoryProvider),
-    ref.watch(categoryRepositoryProvider),
     ref.watch(geminiServiceProvider),
     ref.watch(embeddingServiceProvider),
   );
@@ -53,9 +52,9 @@ final trendingServiceProvider = Provider<TrendingService>((ref) {
 // fetches and stores fresh ones if not.
 // Waits for settings to load first so the Gemini API key is available.
 final trendingInitProvider = FutureProvider<void>((ref) async {
-  await ref.read(settingsNotifierProvider.future);
+  final settings = await ref.read(settingsNotifierProvider.future);
   final service = ref.read(trendingServiceProvider);
-  await service.getOrFetchCurrentWeek();
+  await service.getOrFetchCurrentWeek(trendFetchCount: settings.trendFetchCount);
 });
 
 final embeddingServiceProvider = Provider<EmbeddingService>((ref) {
