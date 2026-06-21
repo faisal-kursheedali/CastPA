@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -1087,6 +1088,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ),
+                      if (bootstrapConfig?.syncFolderPath != null &&
+                          bootstrapConfig!.syncFolderPath!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 6,
+                          children: [
+                            _FolderStatusChip(label: 'root', path: bootstrapConfig.syncFolderPath!),
+                            _FolderStatusChip(label: '.media', path: p.join(bootstrapConfig.syncFolderPath!, '.media')),
+                            _FolderStatusChip(label: 'share', path: p.join(bootstrapConfig.syncFolderPath!, 'share')),
+                            _FolderStatusChip(label: '.backups', path: p.join(bootstrapConfig.syncFolderPath!, '.backups')),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push('/folder-browser', extra: {
+                              'label': 'Storage Explorer',
+                              'path': bootstrapConfig.syncFolderPath!,
+                            }),
+                            icon: const Icon(Icons.folder_open, size: 18),
+                            label: const Text('Explore'),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
@@ -1167,6 +1194,30 @@ class _LockedField extends StatelessWidget {
             : (value.isEmpty ? '—' : value),
         style: const TextStyle(fontSize: 14),
       ),
+    );
+  }
+}
+
+class _FolderStatusChip extends StatelessWidget {
+  final String label;
+  final String path;
+
+  const _FolderStatusChip({required this.label, required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    final exists = Directory(path).existsSync();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          exists ? Icons.check_circle : Icons.cancel,
+          size: 14,
+          color: exists ? Colors.green : Colors.red,
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
   }
 }

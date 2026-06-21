@@ -12,20 +12,38 @@ import 'package:castpa/data/services/trending_service.dart';
 import 'package:castpa/data/services/embedding_service.dart';
 import 'package:castpa/data/services/media_file_service.dart';
 
-// Resolves the media folder path in a platform-safe way.
-// On Android, scoped storage prevents writes to arbitrary external paths,
-// so we always use app-internal documents directory there.
 final _mediaFolderPathProvider = FutureProvider<String>((ref) async {
-  if (Platform.isAndroid) {
-    final dir = await getApplicationDocumentsDirectory();
-    final mediaDir = Directory(p.join(dir.path, '.media'));
-    await mediaDir.create(recursive: true);
-    return mediaDir.path;
-  }
   final config = ref.watch(bootstrapConfigProvider).valueOrNull;
   final syncFolder = config?.syncFolderPath ?? '';
-  return syncFolder.isEmpty ? '' : p.join(syncFolder, '.media');
+  if (syncFolder.isEmpty) return '';
+  final mediaDir = Directory(p.join(syncFolder, '.media'));
+  await mediaDir.create(recursive: true);
+
+  if (Platform.isAndroid) {
+    await _migrateOldAndroidMedia(mediaDir.path);
+  }
+
+  return mediaDir.path;
 });
+
+Future<void> _migrateOldAndroidMedia(String newMediaPath) async {
+  try {
+    final appDocsDir = await getApplicationDocumentsDirectory();
+    final oldMediaDir = Directory(p.join(appDocsDir.path, '.media'));
+    if (!oldMediaDir.existsSync()) return;
+    final files = oldMediaDir.listSync().whereType<File>();
+    for (final file in files) {
+      final dest = File(p.join(newMediaPath, p.basename(file.path)));
+      if (!dest.existsSync()) {
+        await file.copy(dest.path);
+      }
+      await file.delete();
+    }
+    if (oldMediaDir.listSync().isEmpty) {
+      await oldMediaDir.delete();
+    }
+  } catch (_) {}
+}
 
 final geminiServiceProvider = Provider<GeminiService>((ref) {
   final settings = ref.watch(settingsNotifierProvider).valueOrNull;
