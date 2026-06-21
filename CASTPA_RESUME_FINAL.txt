@@ -1,0 +1,15 @@
+CastPA — AI-Powered Social Media Content Engine
+Flutter | TFLite | Whisper | Gemini | OAuth 2.0 | SQLite | Riverpod
+
+- Developed a local-first cross-platform app where the entire state — 7-table SQLite DB, media files, backups — lives in a single folder; syncing it via Google Drive/Dropbox enables zero-server multi-device access across macOS and Android with file-watcher conflict detection and automatic backups
+
+- Users dump raw ideas via text or voice — integrated on-device Whisper Base (~145 MB, 16 kHz mono WAV) for real-time speech-to-text transcription with zero cloud dependency
+
+- Raw dumps are polished using Gemini 2.5 Flash Lite into platform-optimized LinkedIn posts (900–1,200 chars, 210-char hook) and X posts (≤220 chars), which also extracts 3–10 content-specific base tags from the post content itself
+
+- Weekly cron fetches tags from the top 300 dev.to posts as trending topics; all post content, post base tags, and trending tags are embedded on-device using MiniLM-L6-v2 (384-dim, L2-normalized via TFLite) 
+— a custom RAG pipeline then computes cosine similarity + keyword-match scores between tag and topic embeddings to auto-select the top-5 most relevant trending hashtags per post
+
+- Full-post embeddings are compared against trending topic embeddings to rank and surface the most trend-aligned posts in the user's publishing queue, helping prioritize what to publish based on current week's relevance
+
+- Users publish directly via OAuth 2.0 — LinkedIn (with 3-step image upload) and X/Twitter (PKCE with SHA-256) — or use copy-to-clipboard where content + hashtags are copied together and media files are placed in a share folder for manual attachment

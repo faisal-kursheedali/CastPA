@@ -1,0 +1,339 @@
+# CastPA — AI-Powered Cross-Platform Social Media Content Engine
+
+## Project Summary
+
+CastPA is a production-grade, cross-platform Flutter application that transforms raw ideas (text or voice) into polished, platform-optimized social media content for LinkedIn and X (Twitter), with intelligent hashtag selection powered by a custom RAG (Retrieval-Augmented Generation) pipeline. The system runs 2 on-device ML models, integrates 3 external APIs, manages a 7-table SQLite database with multi-device file-based sync, and supports OAuth 2.0 (with PKCE) for automated publishing.
+
+**Platforms:** Android, iOS, macOS, Windows, Linux  
+**Codebase:** 73 Dart files | 7 database tables | 10+ routes | 23+ dependencies  
+
+---
+
+## End-to-End Flow (From App Launch to Published Post)
+
+### Phase 1: App Bootstrap & Device Registration
+1. App launches → checks SharedPreferences for saved sync folder path
+2. If no folder → navigates to FolderSetupScreen (onboarding) → user picks a cloud-synced folder (Google Drive/Dropbox/iCloud/OneDrive)
+3. If folder exists → generates UUID device ID (first launch only) → registers device in Devices table
+4. Opens `{syncFolder}/castpa.db` via Drift ORM → runs structural migrations (PRAGMA user_version, currently v17) → runs logical migrations (dbSchemaVersion in Settings table, runs once across all devices)
+5. Starts DbSyncService file watcher on `castpa.db` → monitors for external changes from other synced devices
+6. Triggers `trendingInitProvider` → checks if trending topics are from current week → fetches fresh ones if stale (dev.to → HN → Gemini fallback)
+7. Each fetched trending topic is individually embedded via on-device MiniLM-L6-v2 (384-dim) → stored in Trendings table as JSON arrays of float vectors
+8. App is ready → navigates to HomeScreen
+
+### Phase 2: Content Creation (Voice or Text Input)
+1. User taps "New Post" → CreatePostScreen opens → new Post entity created with UUID, status=DRAFT, empty dump
+2. **Text path:** User types raw ideas into dump field → auto-saved to DB every 800ms (debounced)
+3. **Voice path:** User taps mic → requests microphone permission → starts recording (WAV, 16 kHz, mono) → user taps stop → audio file saved to temp dir → Whisper Base model (~145 MB, downloaded on first use) transcribes on-device → transcript appended to dump field → auto-saved
+4. User selects target platforms (LinkedIn, X, or both) and assigns a category
+
+### Phase 3: AI Content Polish
+1. User taps "Polish" → validates: dump non-empty, platforms selected, Gemini API key configured
+2. Sends dump + platform targets + tag constraints to Gemini 2.5 Flash Lite API (temperature: 0.7, max tokens: 2048)
+3. Gemini prompt includes:
+   - 5 hook patterns (contrarian, curiosity, fear, stat, aspiration) with examples
+   - 3 content structures (PAS, BAB, Contrarian)
+   - Platform-specific constraints: LinkedIn 900-1200 chars with 210-char hook, X ≤220 chars
+   - Tag rules: 3-10 specific tags (configurable), lowercase with underscores, banned generic terms list
+4. Response parsed (JSON extracted from markdown code block via regex):
+   - `linkedinContent` → stored in post
+   - `twitterContent` → stored in post
+   - `tags` → stored as `postBaseTags`
+   - `hookType`, `structureUsed`, `endsWithQuestion` → metadata for debugging/analytics
+5. User can manually edit the polished content, re-polish, or accept as-is
+
+### Phase 4: Tag Embedding & RAG Matching
+1. Immediately after polish, each post base tag is individually embedded via MiniLM-L6-v2:
+   - Tag text → BERT WordPiece tokenization (30,522-token vocab) → [CLS] + tokens + [SEP]
+   - If text > 128 tokens → chunked (320 chars, 240-char stride, 75% overlap) → each chunk embedded → mean-pooled → re-normalized
+   - Result: 384-dim L2-normalized vector per tag → stored as `postBaseTagsEmbedding` (JSON array of arrays)
+2. RAG pipeline triggers (`filterTrendingTagsByRag`):
+   - Loads latest Trending record from DB (has `eachEmbedding`: one 384-dim vector per trending topic)
+   - For each post tag embedding × each trending topic embedding:
+     - Computes cosine similarity (dot product of L2-normalized vectors)
+     - Adds keyword match bonus (+0.5 if lexical word overlap)
+     - Combined score = embedding_score + keyword_score
+   - Ranks all trending topics per tag, keeps top-5 per tag
+   - Merges across all tags (max score if topic appears in multiple tag results)
+   - Selects final top-K (default 5, configurable via `trendTagsPerPost` setting)
+   - Deduplicates against any user-manually-added trend tags
+3. UI updates: RAG suggestions shown as checkboxes → user can accept/remove/add custom tags
+4. Final tag list stored: `trendsBasePublishTags` = RAG suggestions ∪ user-added tags
+
+### Phase 5: Submit (Queue for Publishing)
+1. User taps "Submit" → validation:
+   - If dump + all content fields empty → soft-delete (isRemoved=true), post hidden from all lists
+   - If not all selected platforms have content → stays DRAFT (incomplete)
+   - If all platform content filled → proceeds to embedding
+2. Full post embedding computed:
+   - Concatenates: best available content (linkedinContent ?? twitterContent) + all tags joined with space
+   - Runs `embedChunked()` → 384-dim L2-normalized vector → stored as comma-separated string in `embedding` field
+   - Sets `isEmbedded = true`
+3. Post status transitions to PENDING → appears in Queue screen under "Pending" tab
+4. Post is now read-only for content (can still modify tags/platforms)
+
+### Phase 6: Publishing
+1. User opens Queue → selects a PENDING post → taps "Publish"
+2. Pre-publish checks: post must have categoryId, at least one remaining target platform
+3. Tag assembly for publishing:
+   - Merges: postBaseTags + trendsBasePublishTags (RAG + user-added)
+   - Prefixes each with `#` if not already present
+   - Deduplicates
+4. Content assembly per platform:
+   - LinkedIn: `{linkedinContent}\n\n{#tag1 #tag2 ...}`
+   - X: `{twitterContent}\n\n{#tag1 #tag2 ...}`
+5. Media handling:
+   - Loads MediaItems by post.mediaIds → filters to images only (videos not yet supported in API publishing)
+   - Verifies each file exists on disk → resolves absolute path from `{syncFolder}/.media/{storedFilename}`
+6. **LinkedIn publish flow:**
+   - `GET /v2/userinfo` → extract user URN (`urn:li:person:{sub}`)
+   - For each image: `POST /v2/assets?action=registerUpload` → get uploadUrl → `PUT` binary bytes to uploadUrl → get asset URN
+   - `POST /v2/ugcPosts` with content, visibility=PUBLIC, attached media URNs
+7. **X publish flow:**
+   - `POST /2/tweets` with `{"text": content}` (media upload not yet implemented)
+8. Per-platform error handling: if LinkedIn fails, still attempts X → collects all errors
+9. Post-publish updates:
+   - Creates PublishRecord(s) with device ID and timestamp
+   - Adds succeeded platforms to `publishedPlatforms`
+   - Recalculates status: all done → PUBLISHED, some done → PARTIAL_PUBLISHED
+   - Invalidates all postListProvider caches → UI refreshes across all queue tabs
+
+### Phase 7: Multi-Device Sync (Continuous)
+1. Device A publishes a post → writes to `castpa.db` in sync folder
+2. Cloud service (Dropbox/Drive/iCloud) syncs the DB file to other devices
+3. Device B's DbSyncService file watcher detects change:
+   - Checks if Device B was recently writing (within 7-minute conflict window)
+   - If yes → creates timestamped backup in `.backups/` (max 10 kept, oldest pruned)
+   - If no (idle) → accepts incoming version as canonical
+4. Increments `dbEpochProvider` counter → all watching Riverpod providers rebuild with fresh data
+5. Device B's UI now shows the published post with updated status
+6. Media files in `.media/` folder sync independently via the same cloud storage
+7. Any device can continue editing drafts, publishing pending posts, or creating new content
+
+### Copy-to-Platform Flow (Manual Publishing Alternative)
+1. User enables "Copy to LinkedIn" or "Copy to X" in Settings
+2. On publish screen, a "Copy & Open" button appears alongside auto-publish
+3. Tapping copies the formatted content (with tags) to clipboard
+4. Media files are copied to `share/` folder with sequential names (1.jpg, 2.png, ...)
+5. Opens LinkedIn/X in browser (desktop) or app (mobile)
+6. User pastes content and manually attaches images from share folder
+7. App marks the post as published when user confirms
+
+---
+
+## Technical Architecture
+
+### On-Device ML Pipeline (No Cloud Dependency for Inference)
+
+| Model | Architecture | Purpose | Output |
+|-------|-------------|---------|--------|
+| **All-MiniLM-L6-v2** | BERT sentence transformer (TFLite) | Semantic embedding for posts, tags, and trending topics | 384-dimensional L2-normalized vectors |
+| **Whisper Base** | Encoder-decoder transformer (~145 MB) | On-device voice-to-text transcription (16 kHz mono WAV) | Raw text transcript |
+
+- **Embedding inference** runs entirely on-device via TFLite — zero cloud latency for vector operations
+- **Chunked embedding strategy**: 320-char chunks with 240-char stride (75% overlap), mean-pooled and re-normalized to handle texts exceeding BERT's 128-token limit
+- **BERT WordPiece tokenizer**: Custom implementation with 30,522-token vocabulary, [CLS]/[SEP] framing, attention mask generation
+
+### RAG Pipeline — Intelligent Trending Tag Selection
+
+Built a custom Retrieval-Augmented Generation system that matches post content against weekly trending topics using hybrid scoring:
+
+**Algorithm:**
+```
+For each AI-generated post tag:
+  For each trending topic:
+    embedding_score = cosineSimilarity(tag_384dim, trend_384dim)
+    keyword_score   = 0.5 if lexical word overlap, else 0.0
+    combined_score  = embedding_score + keyword_score
+  → Rank and keep top-5 per tag
+
+Merge across all tags (max score if duplicate topic)
+→ Final selection: top-K trending tags (configurable, default 5)
+→ Deduplicate against user-manually-added tags
+```
+
+- **Complexity:** O(n × m) comparisons where n = post tags (3–10), m = trending topics (7–50)
+- **Debug transparency:** Full `RagDebugData` with per-tag score breakdowns, merged rankings, and final selection — accessible in UI for tuning
+- **Three-tier tag system:**
+  - **Post Base Tags** — AI-generated, content-specific (e.g., `system_design`, `llm_agents`)
+  - **Trends Base Publish Tags** — RAG-selected from weekly trending pool
+  - **User-Added Trend Tags** — Manual overrides, tracked separately to prevent RAG duplication
+
+### Gemini API Integration (Content Generation + Fallback Embeddings)
+
+**Model:** `gemini-2.5-flash-lite` (temperature: 0.7, max tokens: 2048)
+
+**Content polish pipeline** — transforms raw dumps into platform-optimized posts:
+- **LinkedIn:** 900–1200 chars with 210-char hook (5 hook patterns: contrarian, curiosity, fear, stat, aspiration)
+- **X/Twitter:** ≤220 chars
+- **Structures:** PAS (Problem-Agitate-Solution), BAB (Before-After-Bridge), Contrarian
+- **Tag generation:** 3–10 specific tags per post (configurable range/exact mode), with banned generic terms (`learning`, `tips`, `growth`, `career`, etc.)
+
+**Trending topic extraction** — multi-source with cascading fallback:
+1. **dev.to API** (primary): `GET /api/articles?top=50&per_page=7` → direct tag extraction
+2. **Hacker News Algolia** (secondary): `GET /api/v1/search?tags=front_page&hitsPerPage=30` → Gemini keyword extraction from titles
+3. **Gemini global trends** (tertiary): LLM-generated 15–20 trending terms (temperature: 0.4)
+
+**Embedding model:** `text-embedding-004` (768-dim) — used as fallback/verification for trending topics only; primary embeddings use local MiniLM (384-dim)
+
+### Voice-to-Text Pipeline
+
+**Recording:**
+- Format: WAV, 16 kHz, mono channel
+- Platform quirks handled: macOS AVCaptureAudioFileOutput async write (4-second timeout + 10-second file-ready polling)
+- State machine: `IDLE → RECORDING → TRANSCRIBING → IDLE` (with cancel path)
+
+**Transcription:**
+- Whisper Base model downloaded on first use (~145 MB)
+- Options: no timestamps, word-level splitting
+- Permissions: Android `Permission.microphone`, iOS/macOS native handling
+
+---
+
+## Database Architecture (Drift ORM, SQLite)
+
+**7 tables, 17 structural migrations, 1 logical migration**
+
+| Table | Key Fields | Purpose |
+|-------|-----------|---------|
+| **Posts** | 20 columns including `embedding` (384-dim vector as TEXT), `postBaseTagsEmbedding` (JSON array of vectors), 3 tag lists, 2 platform content fields | Primary content with full ML metadata |
+| **Media** | `storedFilename` (UUID + extension), `originalFilename` | Image/video storage tracking |
+| **Settings** | 21 configurable fields (singleton row) | OAuth tokens, API keys, AI model selection, tag configuration |
+| **Devices** | `deviceId` (UUID), `rootFolderPath` | Multi-device tracking |
+| **Publishes** | `postId`, `platformsJson`, `deviceId` | Publish audit trail |
+| **Categories** | `name`, `status` (active/inactive) | Content categorization |
+| **Trendings** | `trendTopicsJson`, `fullEmbeddingJson` (384-dim), `eachEmbeddingJson` (384-dim per topic), `platform` source | Weekly trend cache with embeddings |
+
+**Multi-device migration strategy:**
+- **Structural migrations** (PRAGMA user_version): Run on every device, using `_safeAlter()` to handle "column already exists" errors from synced DBs
+- **Logical migrations** (dbSchemaVersion in Settings table): Run once across all devices — tracked in the shared DB itself, prevents duplicate data operations
+
+---
+
+## OAuth 2.0 & Publishing System
+
+### LinkedIn OAuth + Publishing
+- **Flow:** Authorization Code Grant (scopes: `openid profile w_member_social`)
+- **Image publishing:** 3-step process — `registerUpload` → binary PUT to upload URL → attach asset URN to `ugcPost`
+- **API:** `POST /v2/ugcPosts` with `com.linkedin.ugc.ShareContent` payload
+
+### X (Twitter) OAuth 2.0 with PKCE
+- **Flow:** Authorization Code with PKCE (SHA256 code challenge, scopes: `tweet.read tweet.write users.read offline.access`)
+- **Security:** Code verifier (32 bytes), state validation (16 bytes), Basic auth for token exchange
+- **API:** `POST /2/tweets`
+
+**Redirect architecture:** GitHub Pages hosted callback (`castpa://` custom scheme intercepted by `flutter_web_auth_2`)
+
+**Per-platform error handling:** If LinkedIn fails, still attempts X → collects all errors → updates post status based on partial success (PARTIAL_PUBLISHED vs PUBLISHED)
+
+---
+
+## Multi-Device Sync Architecture
+
+**Approach:** File-based sync via cloud storage (Google Drive, Dropbox, iCloud, OneDrive)
+
+- Database file (`castpa.db`) and media folder (`.media/`) live in a user-selected sync folder
+- **File watcher** (`db_sync_service.dart`) monitors `castpa.db` for external changes from other devices
+- **Smart conflict resolution:** Only creates backup if current device was actively writing within a 7-minute conflict window — if idle longer, other device's version is treated as canonical
+- **Backup management:** Timestamped copies in `.backups/` (max 10, oldest pruned)
+- **Epoch-based UI refresh:** `dbEpochProvider` counter incremented on external DB change → all watching Riverpod providers rebuild with fresh data
+
+**Two-tier schema versioning** ensures safe multi-device operation:
+```
+Device A opens first → runs structural + logical migrations
+Device B syncs DB   → runs structural again (safe alters) → skips logical (already done by A)
+```
+
+---
+
+## Media Pipeline
+
+**Storage architecture:**
+```
+{syncFolder}/
+├── castpa.db           # Shared database
+├── .media/             # UUID-named media files (cross-device accessible)
+├── .backups/           # Timestamped DB conflict backups (max 10)
+└── share/              # Temporary numbered copies for platform sharing
+```
+
+- **File naming:** UUID v4 + original extension (`a1b2c3d4.jpg`)
+- **Supported formats:** Images (jpg, jpeg, png, gif, webp, heic, heif) | Videos (mp4, mov, avi, mkv, webm, m4v)
+- **Android SAF URI conversion:** Translates `content://com.android.externalstorage.documents/tree/primary:...` to real filesystem paths
+- **Publishing pipeline:** Filter to images only → verify file existence → LinkedIn: registerUpload + binary PUT → attach to post
+
+---
+
+## State Management (Riverpod)
+
+**5-layer provider hierarchy:**
+
+| Layer | Examples | Pattern |
+|-------|----------|---------|
+| **Singletons** | `databaseProvider`, `bootstrapServiceProvider` | Created once at startup |
+| **Computed** | `geminiServiceProvider` (watches API key), `mediaFileServiceProvider` (watches sync folder) | Rebuild on dependency change |
+| **Repository** | 7 repository providers | Thin wrappers over Drift DB |
+| **Async Data** | `settingsNotifierProvider`, `postListProvider(status)`, `latestTrendingProvider` | Family/scoped, watch `dbEpochProvider` for sync |
+| **Edit State** | `postEditProvider` (800ms debounced auto-save), `recordingProvider`, `publishNotifierProvider` | Auto-dispose on route pop |
+
+---
+
+## Post Lifecycle State Machine
+
+```
+CREATE → DRAFT → [POLISH via Gemini] → DRAFT → SUBMIT → PENDING → PUBLISH → PUBLISHED
+                                                  ↓                    ↓
+                                            (incomplete)        PARTIAL_PUBLISHED
+                                                  ↓
+                                           stays DRAFT
+         ↓ (empty on submit)
+       REMOVED (soft-delete, preserved in DB)
+```
+
+**Submit triggers:** Full-post embedding (content + tags concatenated, chunked, 384-dim), RAG re-filtering, status transition  
+**Auto-save:** 800ms debounced writes during editing — zero data loss on crash
+
+---
+
+## Key Engineering Decisions & Quantitative Metrics
+
+| Metric | Value |
+|--------|-------|
+| Embedding dimensions (on-device) | 384 (L2-normalized, MiniLM-L6-v2) |
+| Embedding dimensions (Gemini fallback) | 768 (text-embedding-004) |
+| Chunk size / stride for long text | 320 chars / 240 chars (75% overlap) |
+| BERT vocabulary size | 30,522 tokens (WordPiece) |
+| Max BERT sequence length | 128 tokens |
+| LinkedIn content target | 900–1200 chars (210-char hook) |
+| X/Twitter content limit | 220 chars |
+| Default trending fetch count | 7 articles (dev.to) |
+| Default RAG top-K | 5 trending tags per post |
+| Post tag range | 3–10 (configurable range/exact mode) |
+| Hook patterns | 5 (contrarian, curiosity, fear, stat, aspiration) |
+| Content structures | 3 (PAS, BAB, Contrarian) |
+| Database tables | 7 |
+| Schema migrations | 17 structural + 1 logical |
+| Supported publish platforms | 2 (LinkedIn, X) |
+| On-device ML models | 2 (MiniLM-L6-v2, Whisper Base) |
+| External API integrations | 5 (Gemini, LinkedIn, X, dev.to, Hacker News) |
+| Trending data sources | 3 (dev.to, HN Algolia, Gemini fallback) |
+| Auto-save debounce | 800ms |
+| Sync conflict window | 7 minutes |
+| Max DB backups retained | 10 |
+| Audio spec (voice input) | WAV, 16 kHz, mono |
+| Whisper model size | ~145 MB |
+| Dart files | 73 |
+| Dependencies | 23+ production, 7+ dev |
+
+---
+
+## Tech Stack Summary
+
+**Frontend:** Flutter (Dart ^3.10.4) | Material 3 | GoRouter v14  
+**State:** Riverpod (providers, async notifiers, family, auto-dispose)  
+**Database:** Drift ORM (SQLite) | 7 tables | 17 migrations | multi-device file sync  
+**On-Device ML:** TFLite (MiniLM-L6-v2, 384-dim embeddings) | Whisper Base (voice transcription)  
+**Cloud AI:** Gemini 2.5 Flash Lite (content generation, tag extraction, trend analysis)  
+**Auth:** OAuth 2.0 (LinkedIn) | OAuth 2.0 + PKCE (X/Twitter)  
+**APIs:** LinkedIn v2, Twitter v2, dev.to, Hacker News Algolia, Gemini generativelanguage  
+**Platforms:** Android, iOS, macOS, Windows, Linux  
