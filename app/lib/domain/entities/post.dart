@@ -5,6 +5,9 @@ class Post {
   final String dump;
   final String? linkedinContent;
   final String? twitterContent;
+  final String? linkedinFirstComment;
+  final String? twitterFirstComment;
+  final bool linkInFirstComment;
   final String? embedding;
   final String? postBaseTagsEmbedding;
   final bool isEmbedded;
@@ -26,6 +29,9 @@ class Post {
     required this.dump,
     this.linkedinContent,
     this.twitterContent,
+    this.linkedinFirstComment,
+    this.twitterFirstComment,
+    this.linkInFirstComment = true,
     this.embedding,
     this.postBaseTagsEmbedding,
     this.isEmbedded = false,
@@ -59,6 +65,9 @@ class Post {
     String? dump,
     String? linkedinContent,
     String? twitterContent,
+    String? linkedinFirstComment,
+    String? twitterFirstComment,
+    bool? linkInFirstComment,
     String? embedding,
     String? postBaseTagsEmbedding,
     bool? isEmbedded,
@@ -77,6 +86,8 @@ class Post {
     bool clearCategoryId = false,
     bool clearLinkedinContent = false,
     bool clearTwitterContent = false,
+    bool clearLinkedinFirstComment = false,
+    bool clearTwitterFirstComment = false,
     bool clearEmbedding = false,
     bool clearPostBaseTagsEmbedding = false,
   }) {
@@ -85,6 +96,9 @@ class Post {
       dump: dump ?? this.dump,
       linkedinContent: clearLinkedinContent ? null : linkedinContent ?? this.linkedinContent,
       twitterContent: clearTwitterContent ? null : twitterContent ?? this.twitterContent,
+      linkedinFirstComment: clearLinkedinFirstComment ? null : linkedinFirstComment ?? this.linkedinFirstComment,
+      twitterFirstComment: clearTwitterFirstComment ? null : twitterFirstComment ?? this.twitterFirstComment,
+      linkInFirstComment: linkInFirstComment ?? this.linkInFirstComment,
       embedding: clearEmbedding ? null : embedding ?? this.embedding,
       postBaseTagsEmbedding: clearPostBaseTagsEmbedding ? null : postBaseTagsEmbedding ?? this.postBaseTagsEmbedding,
       isEmbedded: isEmbedded ?? this.isEmbedded,

@@ -99,7 +99,25 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen>
         return Scaffold(
           appBar: AppBar(
             title: Text(status.displayName),
-            actions: [if (!isLocked) RagStatusIndicator(ragStatus: editState.ragStatus), if (!isLocked) SaveStatusIndicator(saveState: saveState)],
+            actions: [
+              if (!isLocked) SaveStatusIndicator(saveState: saveState),
+              if (!isLocked && !editState.dumpTrendingTags) RagStatusIndicator(ragStatus: editState.ragStatus),
+              if (!isLocked) Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ToggleButtons(
+                  isSelected: [editState.dumpTrendingTags],
+                  onPressed: (_) => ref.read(postEditProvider.notifier).toggleDumpTrendingTags(),
+                  borderRadius: BorderRadius.circular(8),
+                  constraints: const BoxConstraints(minHeight: 32, minWidth: 0),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('Dump Tags', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               tabs: const [

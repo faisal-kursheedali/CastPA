@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 class TagChipsEditor extends StatefulWidget {
   final List<String> tags;
   final String label;
   final bool readOnly;
   final void Function(List<String>)? onChanged;
+  final String tagFormat;
 
   const TagChipsEditor({
     super.key,
@@ -12,6 +14,7 @@ class TagChipsEditor extends StatefulWidget {
     required this.label,
     this.readOnly = false,
     this.onChanged,
+    this.tagFormat = 'camelCase',
   });
 
   @override
@@ -43,7 +46,7 @@ class _TagChipsEditorState extends State<TagChipsEditor> {
   }
 
   void _addTag(String value) {
-    final trimmed = value.trim().replaceAll('#', '').replaceAll(' ', '_');
+    final trimmed = toTag(value, format: widget.tagFormat);
     if (trimmed.isEmpty || _tags.contains(trimmed)) return;
     setState(() => _tags.add(trimmed));
     _ctrl.clear();

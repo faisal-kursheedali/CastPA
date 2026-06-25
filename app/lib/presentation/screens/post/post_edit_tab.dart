@@ -13,6 +13,7 @@ import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/media_item.dart';
 import 'package:castpa/presentation/widgets/common/media_item_widget.dart';
 import 'package:castpa/presentation/widgets/post/tag_chips_editor.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 class PostEditTab extends ConsumerStatefulWidget {
   final bool readOnly;
@@ -33,6 +34,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
   late TextEditingController _linkedinCtrl;
   late TextEditingController _twitterCtrl;
   late TextEditingController _linkCtrl;
+  late TextEditingController _linkedinFirstCommentCtrl;
+  late TextEditingController _twitterFirstCommentCtrl;
   bool _initialized = false;
   int _xTapCount = 0;
 
@@ -80,6 +83,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
     _linkedinCtrl = TextEditingController();
     _twitterCtrl = TextEditingController();
     _linkCtrl = TextEditingController();
+    _linkedinFirstCommentCtrl = TextEditingController();
+    _twitterFirstCommentCtrl = TextEditingController();
   }
 
   @override
@@ -88,6 +93,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
     _linkedinCtrl.dispose();
     _twitterCtrl.dispose();
     _linkCtrl.dispose();
+    _linkedinFirstCommentCtrl.dispose();
+    _twitterFirstCommentCtrl.dispose();
     super.dispose();
   }
 
@@ -96,6 +103,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
       _dumpCtrl.text = editState.post.dump;
       _linkedinCtrl.text = editState.post.linkedinContent ?? '';
       _twitterCtrl.text = editState.post.twitterContent ?? '';
+      _linkedinFirstCommentCtrl.text = editState.post.linkedinFirstComment ?? '';
+      _twitterFirstCommentCtrl.text = editState.post.twitterFirstComment ?? '';
       _initialized = true;
     }
   }
@@ -103,6 +112,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
   void _syncAfterPolish(PostEditState next) {
     _linkedinCtrl.text = next.post.linkedinContent ?? '';
     _twitterCtrl.text = next.post.twitterContent ?? '';
+    _linkedinFirstCommentCtrl.text = next.post.linkedinFirstComment ?? '';
+    _twitterFirstCommentCtrl.text = next.post.twitterFirstComment ?? '';
   }
 
   void _addLink() {
@@ -151,7 +162,17 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
               const SizedBox(height: 8),
               _RecordingBar(dumpCtrl: _dumpCtrl),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // Link in first comment toggle
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Link in 1st comment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Move any URL from content to first comment', style: TextStyle(fontSize: 11)),
+              value: post.linkInFirstComment,
+              onChanged: widget.readOnly ? null : (v) => ref.read(postEditProvider.notifier).updateLinkInFirstComment(v),
+            ),
+            const SizedBox(height: 4),
             // Links
             _sectionLabel('Links'),
             ...post.links.asMap().entries.map((entry) => ListTile(
@@ -279,6 +300,20 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
                 ),
                 onChanged: (v) => ref.read(postEditProvider.notifier).updateLinkedinContent(v),
               ),
+              if (post.linkInFirstComment) ...[
+                const SizedBox(height: 8),
+                _sectionLabel('LinkedIn 1st Comment'),
+                TextField(
+                  controller: _linkedinFirstCommentCtrl,
+                  maxLines: 2,
+                  readOnly: widget.readOnly,
+                  decoration: const InputDecoration(
+                    hintText: 'First comment (link goes here)...',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (v) => ref.read(postEditProvider.notifier).updateLinkedinFirstComment(v),
+                ),
+              ],
               const SizedBox(height: 16),
             ],
             _sectionLabel('X (Twitter) Content'),
@@ -293,6 +328,20 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
               ),
               onChanged: (v) => ref.read(postEditProvider.notifier).updateTwitterContent(v),
             ),
+            if (post.linkInFirstComment) ...[
+              const SizedBox(height: 8),
+              _sectionLabel('X 1st Comment'),
+              TextField(
+                controller: _twitterFirstCommentCtrl,
+                maxLines: 2,
+                readOnly: widget.readOnly,
+                decoration: const InputDecoration(
+                  hintText: 'First comment (link goes here)...',
+                  alignLabelWithHint: true,
+                ),
+                onChanged: (v) => ref.read(postEditProvider.notifier).updateTwitterFirstComment(v),
+              ),
+            ],
             const SizedBox(height: 16),
           ],
           // Tag checkboxes + tags
@@ -725,24 +774,29 @@ class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
     final post = editState.post;
     final selectedTags = editState.selectedTrendTags;
 
-    final trendTags = trending?.trendTopics.map((t) => t.replaceAll(' ', '_')).toList() ?? [];
-
     final settings = ref.watch(settingsNotifierProvider).valueOrNull;
+    final tagFormat = settings?.tagFormat ?? 'camelCase';
+    final trendTags = trending?.trendTopics.map((t) => toTag(t, format: tagFormat)).toList() ?? [];
 
-    // On first build, always run RAG filter if post has tags (re-filters with latest trending)
-    if (!_didInitialRagFilter && post.postBaseTags.isNotEmpty && trending != null) {
+    // On first build, apply trending tag mode
+    if (!_didInitialRagFilter && trending != null &&
+        (editState.dumpTrendingTags || post.postBaseTags.isNotEmpty)) {
       _didInitialRagFilter = true;
-      final hasCachedEmbeddings = post.postBaseTagsEmbedding != null
-          && post.postBaseTagsEmbedding!.isNotEmpty
-          && post.postBaseTagsEmbedding != '[]';
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final notifier = ref.read(postEditProvider.notifier);
-        if (hasCachedEmbeddings) {
-          final topK = settings?.trendTagsPerPost ?? 5;
-          notifier.filterTrendingTagsByRag(trending, topK: topK);
+        if (editState.dumpTrendingTags) {
+          notifier.applyTrendingTagMode();
         } else {
-          notifier.updatePostBaseTags(post.postBaseTags);
+          final hasCachedEmbeddings = post.postBaseTagsEmbedding != null
+              && post.postBaseTagsEmbedding!.isNotEmpty
+              && post.postBaseTagsEmbedding != '[]';
+          if (hasCachedEmbeddings) {
+            final topK = settings?.trendTagsPerPost ?? 5;
+            notifier.filterTrendingTagsByRag(trending, topK: topK);
+          } else {
+            notifier.updatePostBaseTags(post.postBaseTags);
+          }
         }
       });
     }
@@ -754,6 +808,7 @@ class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
           label: 'Post Base Tags',
           tags: post.postBaseTags,
           readOnly: widget.readOnly,
+          tagFormat: tagFormat,
           onChanged: (tags) => ref.read(postEditProvider.notifier).updatePostBaseTags(tags),
         ),
         const SizedBox(height: 8),
@@ -762,7 +817,48 @@ class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
         const SizedBox(height: 6),
         if (trendTags.isEmpty)
           const Text('No trending tags available', style: TextStyle(fontSize: 12, color: Colors.grey))
-        else ...[
+        else if (editState.dumpTrendingTags) ...[
+          if (trendTags.any((t) => selectedTags.contains(t))) ...[
+            Text('Selected', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => selectedTags.contains(t)).map((tag) {
+                return Chip(
+                  label: Text('#$tag', style: const TextStyle(fontSize: 12)),
+                  onDeleted: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).removeRagSuggestedTag(tag),
+                  deleteIconColor: Colors.grey,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (trendTags.any((t) => !selectedTags.contains(t))) ...[
+            Text('Available', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => !selectedTags.contains(t)).map((tag) {
+                return InputChip(
+                  label: Text('#$tag', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  selected: false,
+                  showCheckmark: false,
+                  onPressed: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).addUserTrendTag(tag),
+                  backgroundColor: Colors.grey.withValues(alpha: 0.08),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Add',
+                );
+              }).toList(),
+            ),
+          ],
+        ] else ...[
           // RAG Suggested tags
           if (trendTags.any((t) => editState.ragSuggestedTags.contains(t))) ...[
             Text('RAG Suggested', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),

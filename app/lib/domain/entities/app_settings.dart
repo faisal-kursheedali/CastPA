@@ -20,6 +20,8 @@ class AppSettings {
   final int postTagMin;
   final int postTagMax;
   final int postTagExact;
+  final bool dumpTrendingTags;
+  final String tagFormat;
 
   const AppSettings({
     this.linkedinAuthToken,
@@ -43,6 +45,8 @@ class AppSettings {
     this.postTagMin = 3,
     this.postTagMax = 10,
     this.postTagExact = 5,
+    this.dumpTrendingTags = true,
+    this.tagFormat = 'camelCase',
   });
 
   bool get isLinkedInConnected => linkedinAuthToken != null && linkedinAuthToken!.isNotEmpty;
@@ -79,6 +83,8 @@ class AppSettings {
     int? postTagMin,
     int? postTagMax,
     int? postTagExact,
+    bool? dumpTrendingTags,
+    String? tagFormat,
     bool clearLinkedin = false,
     bool clearX = false,
   }) {
@@ -104,6 +110,8 @@ class AppSettings {
       postTagMin: postTagMin ?? this.postTagMin,
       postTagMax: postTagMax ?? this.postTagMax,
       postTagExact: postTagExact ?? this.postTagExact,
+      dumpTrendingTags: dumpTrendingTags ?? this.dumpTrendingTags,
+      tagFormat: tagFormat ?? this.tagFormat,
     );
   }
 }

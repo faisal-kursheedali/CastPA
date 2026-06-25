@@ -10,6 +10,7 @@ class Trending {
   final List<List<double>> eachEmbedding;
   final String platform;
   final String? fetchError;
+  final bool geminiFilterSuccess;
 
   const Trending({
     required this.id,
@@ -21,6 +22,7 @@ class Trending {
     required this.eachEmbedding,
     this.platform = 'gemini',
     this.fetchError,
+    this.geminiFilterSuccess = false,
   });
 
   bool get isCurrentWeek {

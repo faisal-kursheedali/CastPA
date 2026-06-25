@@ -6,6 +6,7 @@ import 'package:castpa/application/notifiers/post_edit_notifier.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/settings_notifier.dart';
 import 'package:castpa/data/services/gemini_service.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 class SaveStatusIndicator extends ConsumerStatefulWidget {
   final SaveState saveState;
@@ -34,6 +35,29 @@ class _SaveStatusIndicatorState extends ConsumerState<SaveStatusIndicator> {
     }
   }
 
+  void _copyError() {
+    final editState = ref.read(postEditProvider);
+    final post = editState.post;
+    final errorJson = jsonEncode({
+      'error': editState.saveError,
+      'timestamp': DateTime.now().toIso8601String(),
+      'postId': post.id,
+      'postStatus': post.status.name,
+      'dump': post.dump.length > 100 ? '${post.dump.substring(0, 100)}...' : post.dump,
+      'hasLinkedinContent': post.linkedinContent?.isNotEmpty ?? false,
+      'hasTwitterContent': post.twitterContent?.isNotEmpty ?? false,
+      'postBaseTagsCount': post.postBaseTags.length,
+      'trendsBasePublishTagsCount': post.trendsBasePublishTags.length,
+      'mediaIdsCount': post.mediaIds.length,
+    });
+    Clipboard.setData(ClipboardData(text: errorJson));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error details copied to clipboard')),
+      );
+    }
+  }
+
   Future<void> _copyDebugData() async {
     final editState = ref.read(postEditProvider);
     final post = editState.post;
@@ -41,8 +65,9 @@ class _SaveStatusIndicatorState extends ConsumerState<SaveStatusIndicator> {
     final trendingAsync = ref.read(latestTrendingProvider);
     final trending = trendingAsync.valueOrNull;
 
+    final tagFormat = settings?.tagFormat ?? 'camelCase';
     final trendTags = trending?.trendTopics
-        .map((t) => t.replaceAll(' ', '_'))
+        .map((t) => toTag(t, format: tagFormat))
         .toList() ?? [];
     final selectedTrend = editState.selectedTrendTags;
     final unselectedTrend = trendTags.where((t) => !selectedTrend.contains(t)).toList();
@@ -62,6 +87,7 @@ class _SaveStatusIndicatorState extends ConsumerState<SaveStatusIndicator> {
       dump: post.dump,
       forLinkedIn: forLinkedIn,
       forX: forX,
+      linkInFirstComment: post.linkInFirstComment,
       hookType: hookType,
       structure: structure,
       endWithQuestion: endWithQuestion,
@@ -79,6 +105,9 @@ class _SaveStatusIndicatorState extends ConsumerState<SaveStatusIndicator> {
       'media': post.mediaIds,
       'linkedinContent': post.linkedinContent ?? '',
       'xContent': post.twitterContent ?? '',
+      'linkInFirstComment': post.linkInFirstComment,
+      'linkedinFirstComment': post.linkedinFirstComment ?? '',
+      'twitterFirstComment': post.twitterFirstComment ?? '',
       'postBaseTags': post.postBaseTags,
       'trendingTags': {
         'ragSuggested': editState.ragSuggestedTags.toList(),
@@ -129,13 +158,16 @@ class _SaveStatusIndicatorState extends ConsumerState<SaveStatusIndicator> {
                 Text('Saved', style: TextStyle(fontSize: 12, color: Colors.green)),
               ],
             ),
-          SaveState.error => const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.error_outline, size: 14, color: Colors.red),
-                SizedBox(width: 4),
-                Text('Error', style: TextStyle(fontSize: 12, color: Colors.red)),
-              ],
+          SaveState.error => GestureDetector(
+              onTap: _copyError,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, size: 14, color: Colors.red),
+                  SizedBox(width: 4),
+                  Text('Error', style: TextStyle(fontSize: 12, color: Colors.red, decoration: TextDecoration.underline)),
+                ],
+              ),
             ),
           SaveState.idle => const SizedBox.shrink(),
           SaveState.deleted => const SizedBox.shrink(),

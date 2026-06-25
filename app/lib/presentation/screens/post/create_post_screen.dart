@@ -44,7 +44,25 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
       child: Scaffold(
         appBar: AppBar(
           title: const Text('New Post'),
-          actions: [RagStatusIndicator(ragStatus: editState.ragStatus), SaveStatusIndicator(saveState: saveState)],
+          actions: [
+            SaveStatusIndicator(saveState: saveState),
+            if (!editState.dumpTrendingTags) RagStatusIndicator(ragStatus: editState.ragStatus),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: ToggleButtons(
+                isSelected: [editState.dumpTrendingTags],
+                onPressed: (_) => ref.read(postEditProvider.notifier).toggleDumpTrendingTags(),
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minHeight: 32, minWidth: 0),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('Dump Tags', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ],
           bottom: TabBar(
             controller: _tabController,
             tabs: const [

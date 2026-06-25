@@ -14,6 +14,9 @@ class Posts extends Table {
   TextColumn get dump => text().withDefault(const Constant(''))();
   TextColumn get linkedinContent => text().nullable()();
   TextColumn get twitterContent => text().nullable()();
+  TextColumn get linkedinFirstComment => text().nullable()();
+  TextColumn get twitterFirstComment => text().nullable()();
+  BoolColumn get linkInFirstComment => boolean().withDefault(const Constant(true))();
   TextColumn get embedding => text().nullable()();
   TextColumn get postBaseTagsEmbedding => text().nullable()();
   TextColumn get categoryId => text().nullable()();
@@ -75,6 +78,8 @@ class Settings extends Table {
   IntColumn get postTagExact => integer().withDefault(const Constant(5))();
   // Tracks the logical schema version that has been applied to this DB file.
   // Synced across devices so migrations only run once regardless of which device opens it first.
+  BoolColumn get dumpTrendingTags => boolean().withDefault(const Constant(true))();
+  TextColumn get tagFormat => text().withDefault(const Constant('camelCase'))();
   IntColumn get dbSchemaVersion => integer().withDefault(const Constant(0))();
 
   @override
@@ -125,6 +130,7 @@ class Trendings extends Table {
   TextColumn get platform =>
       text().withDefault(const Constant('gemini'))();
   TextColumn get fetchError => text().nullable()();
+  BoolColumn get geminiFilterSuccess => boolean().withDefault(const Constant(false))();
   TextColumn get rawTrendingJson => text().nullable()();
 
   @override
@@ -140,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String dbPath) : super(_openConnection(dbPath));
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -238,6 +244,28 @@ class AppDatabase extends _$AppDatabase {
       if (from < 17) {
         await _safeAlter(
           "ALTER TABLE posts ADD COLUMN user_added_trend_tags_json TEXT NOT NULL DEFAULT '[]'",
+        );
+      }
+      if (from < 18) {
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN dump_trending_tags INTEGER NOT NULL DEFAULT 1',
+        );
+      }
+      if (from < 19) {
+        await _safeAlter(
+          "ALTER TABLE settings ADD COLUMN tag_format TEXT NOT NULL DEFAULT 'camelCase'",
+        );
+      }
+      if (from < 20) {
+        await _safeAlter(
+          'ALTER TABLE trendings ADD COLUMN gemini_filter_success INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 21) {
+        await _safeAlter('ALTER TABLE posts ADD COLUMN linkedin_first_comment TEXT');
+        await _safeAlter('ALTER TABLE posts ADD COLUMN twitter_first_comment TEXT');
+        await _safeAlter(
+          'ALTER TABLE posts ADD COLUMN link_in_first_comment INTEGER NOT NULL DEFAULT 1',
         );
       }
     },

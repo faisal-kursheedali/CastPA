@@ -8,6 +8,9 @@ import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/trending.dart';
+import 'package:castpa/application/providers/settings_notifier.dart';
+import 'package:castpa/domain/entities/app_settings.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 enum SaveState { idle, saving, saved, deleted, error }
 
@@ -39,6 +42,7 @@ class PostEditState {
   final Set<String> ragSuggestedTags;
   final RagStatus ragStatus;
   final RagDebugData? ragDebugData;
+  final bool dumpTrendingTags;
 
   const PostEditState({
     required this.post,
@@ -51,6 +55,7 @@ class PostEditState {
     this.ragSuggestedTags = const {},
     this.ragStatus = RagStatus.idle,
     this.ragDebugData,
+    this.dumpTrendingTags = true,
   });
 
   PostEditState copyWith({
@@ -64,6 +69,7 @@ class PostEditState {
     Set<String>? ragSuggestedTags,
     RagStatus? ragStatus,
     RagDebugData? ragDebugData,
+    bool? dumpTrendingTags,
     bool clearPolishError = false,
     bool clearSaveError = false,
   }) {
@@ -78,6 +84,7 @@ class PostEditState {
       ragSuggestedTags: ragSuggestedTags ?? this.ragSuggestedTags,
       ragStatus: ragStatus ?? this.ragStatus,
       ragDebugData: ragDebugData ?? this.ragDebugData,
+      dumpTrendingTags: dumpTrendingTags ?? this.dumpTrendingTags,
     );
   }
 }
@@ -87,11 +94,16 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
   Timer? _debounce;
   bool _isNew = false;
 
+  String get _tagFormat =>
+      (ref.read(settingsNotifierProvider).valueOrNull ?? const AppSettings()).tagFormat;
+
   @override
   PostEditState build() {
     ref.onDispose(() => _debounce?.cancel());
     _isNew = true;
+    final settings = ref.read(settingsNotifierProvider).valueOrNull ?? const AppSettings();
     return PostEditState(
+      dumpTrendingTags: settings.dumpTrendingTags,
       post: Post(
         id: _uuid.v4(),
         dump: '',
@@ -110,11 +122,24 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
 
   void loadPost(Post post) {
     _isNew = false;
+    final settings = ref.read(settingsNotifierProvider).valueOrNull ?? const AppSettings();
+    final fmt = settings.tagFormat;
+    final reformattedBaseTags = post.postBaseTags.map((t) => toTag(t, format: fmt)).toList();
+    final tagsChanged = reformattedBaseTags.join() != post.postBaseTags.join();
+    final loadedPost = tagsChanged
+        ? post.copyWith(postBaseTags: reformattedBaseTags, updatedAt: DateTime.now())
+        : post;
     state = PostEditState(
-      post: post,
-      ragSuggestedTags: post.trendsBasePublishTags.toSet().difference(post.userAddedTrendTags.toSet()),
-      selectedTrendTags: {...post.trendsBasePublishTags, ...post.userAddedTrendTags},
+      post: loadedPost,
+      dumpTrendingTags: settings.dumpTrendingTags,
+      ragSuggestedTags: loadedPost.trendsBasePublishTags.toSet().difference(loadedPost.userAddedTrendTags.toSet()),
+      selectedTrendTags: {...loadedPost.trendsBasePublishTags, ...loadedPost.userAddedTrendTags},
     );
+    if (tagsChanged) {
+      updatePostBaseTags(reformattedBaseTags);
+    } else {
+      applyTrendingTagMode();
+    }
   }
 
   /// Patches only publish-related fields after a manual copy-to-platform publish.
@@ -156,6 +181,24 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     ),
   );
 
+  void updateLinkInFirstComment(bool value) => _updateAndScheduleSave(
+    state.post.copyWith(linkInFirstComment: value, updatedAt: DateTime.now()),
+  );
+
+  void updateLinkedinFirstComment(String value) => _updateAndScheduleSave(
+    state.post.copyWith(
+      linkedinFirstComment: value.isEmpty ? null : value,
+      updatedAt: DateTime.now(),
+    ),
+  );
+
+  void updateTwitterFirstComment(String value) => _updateAndScheduleSave(
+    state.post.copyWith(
+      twitterFirstComment: value.isEmpty ? null : value,
+      updatedAt: DateTime.now(),
+    ),
+  );
+
   void updateLinks(List<String> links) => _updateAndScheduleSave(
     state.post.copyWith(links: links, updatedAt: DateTime.now()),
   );
@@ -171,6 +214,52 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
       updatedAt: DateTime.now(),
     ),
   );
+
+  void toggleDumpTrendingTags() {
+    final newValue = !state.dumpTrendingTags;
+    state = state.copyWith(dumpTrendingTags: newValue);
+    applyTrendingTagMode();
+  }
+
+  Future<void> applyTrendingTagMode() async {
+    final trendingRepo = ref.read(trendingRepositoryProvider);
+    final trending = await trendingRepo.getMostRecent();
+    if (trending == null) return;
+
+    if (state.dumpTrendingTags) {
+      final allTags = trending.trendTopics.map((t) => toTag(t, format: _tagFormat)).toSet();
+      state = state.copyWith(
+        selectedTrendTags: allTags,
+        ragSuggestedTags: allTags,
+        ragStatus: RagStatus.done,
+      );
+      _updateAndScheduleSave(
+        state.post.copyWith(
+          trendsBasePublishTags: allTags.toList(),
+          userAddedTrendTags: [],
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } else {
+      if (state.post.postBaseTags.isEmpty) {
+        state = state.copyWith(
+          selectedTrendTags: {},
+          ragSuggestedTags: {},
+          ragStatus: RagStatus.empty,
+        );
+        _updateAndScheduleSave(
+          state.post.copyWith(
+            trendsBasePublishTags: [],
+            userAddedTrendTags: [],
+            updatedAt: DateTime.now(),
+          ),
+        );
+      } else {
+        final settings = await ref.read(settingsRepositoryProvider).getSettings();
+        await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+      }
+    }
+  }
 
   void updatePostBaseTags(List<String> tags) {
     _updateAndScheduleSave(
@@ -220,9 +309,27 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
 
     final trendingRepo = ref.read(trendingRepositoryProvider);
     final trending = await trendingRepo.getMostRecent();
-    final settingsRepo = ref.read(settingsRepositoryProvider);
-    final settings = await settingsRepo.getSettings();
-    await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+    if (state.dumpTrendingTags) {
+      if (trending != null) {
+        final allTags = trending.trendTopics.map((t) => toTag(t, format: _tagFormat)).toSet();
+        state = state.copyWith(
+          selectedTrendTags: allTags,
+          ragSuggestedTags: allTags,
+          ragStatus: RagStatus.done,
+        );
+        _updateAndScheduleSave(
+          state.post.copyWith(
+            trendsBasePublishTags: allTags.toList(),
+            userAddedTrendTags: [],
+            updatedAt: DateTime.now(),
+          ),
+        );
+      }
+    } else {
+      final settingsRepo = ref.read(settingsRepositoryProvider);
+      final settings = await settingsRepo.getSettings();
+      await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+    }
   }
 
   void updateTrendsBasePublishTags(List<String> tags) => _updateAndScheduleSave(
@@ -267,7 +374,7 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     state = state.copyWith(ragStatus: RagStatus.processing);
     final embService = ref.read(embeddingServiceProvider);
     final trendTags = trending.trendTopics
-        .map((t) => t.replaceAll(' ', '_'))
+        .map((t) => toTag(t, format: _tagFormat))
         .toList();
 
     // Parse cached per-tag embeddings
@@ -419,6 +526,7 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
         dump: post.dump,
         forLinkedIn: post.selectedPlatforms.contains(Platform.linkedin),
         forX: post.selectedPlatforms.contains(Platform.x),
+        linkInFirstComment: post.linkInFirstComment,
         hookType: hookType,
         structure: structure,
         endWithQuestion: endWithQuestion,
@@ -434,7 +542,7 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
       }
 
       final newTags = result.tags.isNotEmpty
-          ? result.tags.map((t) => t.trim().replaceAll(' ', '_')).toList()
+          ? result.tags.map((t) => toTag(t, format: _tagFormat)).toList()
           : post.postBaseTags;
 
       // Embed each tag individually
@@ -453,6 +561,10 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
       final updated = post.copyWith(
         linkedinContent: result.linkedinContent ?? post.linkedinContent,
         twitterContent: result.twitterContent ?? post.twitterContent,
+        linkedinFirstComment: result.linkedinFirstComment,
+        twitterFirstComment: result.twitterFirstComment,
+        clearLinkedinFirstComment: result.linkedinFirstComment == null && post.linkInFirstComment,
+        clearTwitterFirstComment: result.twitterFirstComment == null && post.linkInFirstComment,
         postBaseTags: newTags,
         postBaseTagsEmbedding: jsonEncode(allEmbeddings),
         status: PostStatus.draft,
@@ -463,10 +575,28 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
       state = state.copyWith(post: updated, isPolishing: false);
       await _save();
 
-      // RAG-filter trending tags using the fresh tag embeddings
+      // Apply trending tags based on mode
       final trendingRepo = ref.read(trendingRepositoryProvider);
       final trending = await trendingRepo.getMostRecent();
-      await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+      if (state.dumpTrendingTags) {
+        if (trending != null) {
+          final allTags = trending.trendTopics.map((t) => toTag(t, format: _tagFormat)).toSet();
+          state = state.copyWith(
+            selectedTrendTags: allTags,
+            ragSuggestedTags: allTags,
+            ragStatus: RagStatus.done,
+          );
+          _updateAndScheduleSave(
+            state.post.copyWith(
+              trendsBasePublishTags: allTags.toList(),
+              userAddedTrendTags: [],
+              updatedAt: DateTime.now(),
+            ),
+          );
+        }
+      } else {
+        await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+      }
     } catch (e) {
       state = state.copyWith(isPolishing: false, polishError: 'Polish failed: $e');
     }

@@ -9,6 +9,7 @@ import 'package:castpa/data/services/media_file_service.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/publish_record.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 enum PublishStatus { idle, publishing, success, error }
 
@@ -50,10 +51,11 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
 
     state = const PublishState(status: PublishStatus.publishing);
 
+    final tagFormat = settings?.tagFormat ?? 'camelCase';
     final allTags = [
       ...post.postBaseTags,
       ...post.trendsBasePublishTags,
-    ].map((t) => t.startsWith('#') ? t : '#$t').toSet().toList();
+    ].map((t) => toHashtag(t, format: tagFormat)).toSet().toList();
 
     String appendTags(String? content) {
       if (content == null || content.isEmpty) return content ?? '';

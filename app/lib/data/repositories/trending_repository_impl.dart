@@ -20,6 +20,7 @@ class TrendingRepositoryImpl implements TrendingRepository {
       eachEmbedding: parseDoubleMatrix(row.eachEmbeddingJson),
       platform: row.platform,
       fetchError: row.fetchError,
+      geminiFilterSuccess: row.geminiFilterSuccess,
     );
   }
 
@@ -45,6 +46,7 @@ class TrendingRepositoryImpl implements TrendingRepository {
       eachEmbeddingJson: Value(encodeDoubleMatrix(trending.eachEmbedding)),
       platform: Value(trending.platform),
       fetchError: Value(trending.fetchError),
+      geminiFilterSuccess: Value(trending.geminiFilterSuccess),
     ));
     return trending.id;
   }

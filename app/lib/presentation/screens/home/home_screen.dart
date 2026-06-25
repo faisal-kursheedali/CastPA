@@ -7,6 +7,7 @@ import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/application/providers/settings_notifier.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/presentation/widgets/common/weekly_progress_ring.dart';
+import 'package:castpa/presentation/screens/queue/trending_detail_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -291,6 +292,30 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
               label: 'Trend Topics',
               status: isLoading ? _ActivityStatus.loading : (hasTrendTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
             ),
+            const SizedBox(height: 4),
+            _ActivityRow(
+              label: 'Gemini Filter',
+              status: isLoading ? _ActivityStatus.loading : (trending?.geminiFilterSuccess == true ? _ActivityStatus.ok : _ActivityStatus.empty),
+            ),
+            if (!isLoading && trending != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Text('raw: ${trending.rawTrendingTopics.length}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(width: 12),
+                  Text('main: ${trending.trendTopics.length}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  Text('filtered: ${trending.rawTrendingTopics.length - trending.trendTopics.length}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TrendingDetailScreen()),
+                    ),
+                    child: Text('know more', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, decoration: TextDecoration.underline)),
+                  ),
+                ],
+              ),
+            ],
             if (!isLoading && trending?.fetchError != null) ...[
               const SizedBox(height: 10),
               Container(

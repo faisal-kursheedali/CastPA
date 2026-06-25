@@ -36,6 +36,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
       postTagMin: row.postTagMin,
       postTagMax: row.postTagMax,
       postTagExact: row.postTagExact,
+      dumpTrendingTags: row.dumpTrendingTags,
+      tagFormat: row.tagFormat,
     );
   }
 
@@ -64,6 +66,8 @@ class SettingsRepositoryImpl implements SettingsRepository {
       postTagMin: Value(settings.postTagMin),
       postTagMax: Value(settings.postTagMax),
       postTagExact: Value(settings.postTagExact),
+      dumpTrendingTags: Value(settings.dumpTrendingTags),
+      tagFormat: Value(settings.tagFormat),
     ));
   }
 }

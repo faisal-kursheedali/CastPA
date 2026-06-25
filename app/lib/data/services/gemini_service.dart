@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 class PolishResult {
   final String? linkedinContent;
   final String? twitterContent;
+  final String? linkedinFirstComment;
+  final String? twitterFirstComment;
   final List<String> tags;
   final String? error;
   final String? hookType;
@@ -13,6 +15,8 @@ class PolishResult {
   const PolishResult({
     this.linkedinContent,
     this.twitterContent,
+    this.linkedinFirstComment,
+    this.twitterFirstComment,
     required this.tags,
     this.error,
     this.hookType,
@@ -58,6 +62,7 @@ class GeminiService {
     required String dump,
     required bool forLinkedIn,
     required bool forX,
+    bool linkInFirstComment = true,
     String hookType = 'auto',
     String structure = 'auto',
     String endWithQuestion = 'auto',
@@ -93,7 +98,7 @@ CONTENT RULES:
 - Emoji bullets only (✅ 🔹 ⚡ →), no markdown
 - Short paragraphs, max 2-3 lines, jump lines between them
 - No hashtags anywhere in content
-- If dump contains a link, place it near end after main content
+- ${linkInFirstComment ? 'If the dump contains any URL/link, do NOT include it in the post content. Instead move it to the first comment field. Add a standalone CTA line like "Link in first comment 👇" near the end. ORDERING RULE: the question (if any) MUST be the absolute last line — the CTA line goes on the line directly above the question, never after it.' : 'If dump contains a link, place it near end after main content.'}
 - $questionInstruction
 
 ${forLinkedIn ? '''LINKEDIN:
@@ -107,19 +112,22 @@ ${forX ? '''X (TWITTER):
 - If dump has link, place at end
 - $questionInstruction''' : ''}
 
-Extract ${postTagMode == 'exact' ? 'exactly $postTagExact' : '$postTagMin-$postTagMax'} tags tightly specific to this post's content.
+Extract ${postTagMode == 'exact' ? 'exactly $postTagExact' : '$postTagMin-$postTagMax'} tags that are REAL hashtags actively used on LinkedIn, X, and dev.to.
 - ${postTagMode == 'exact' ? 'Must return exactly $postTagExact tags' : 'Minimum $postTagMin, maximum $postTagMax'}
-- Must be specific to what this post is actually about — not the platform, industry, or broad field
+- ONLY use tags that real people actually use as hashtags on social media (e.g. flutter, dart, reactjs, nodejs, systemdesign, webdev)
+- Do NOT invent tags — if you haven't seen it used as a real hashtag, don't include it
+- Tags like "pointerEvents", "gestureDetection", "flutterWidgets" are NOT real hashtags — nobody searches for those
+- Real examples: flutter, dart, mobiledev, appdevelopment, uidesign, frontenddevelopment, reactnative, javascript
 - No generic single-word tags (learning, tips, growth, career, success)
 - No platform tags (blogging, medium, writing, linkedin, twitter)
-- No broad category tags (tech, programming, software, engineering)
-- Lowercase, underscores for spaces (e.g. system_design, react_hooks)
-- Must be terms a reader would actually search for
+- Lowercase, no spaces, no underscores (e.g. systemdesign, reacthooks, flutterdev)
 
 Return ONLY valid JSON, no extra text:
 {
   "linkedin_content": ${forLinkedIn ? '"..."' : 'null'},
   "twitter_content": ${forX ? '"..."' : 'null'},
+  "linkedin_first_comment": ${forLinkedIn && linkInFirstComment ? '"(the URL from the dump, with a brief label like \'Read more:\' — empty string if no link in dump)"' : 'null'},
+  "twitter_first_comment": ${forX && linkInFirstComment ? '"(the URL from the dump — empty string if no link in dump)"' : 'null'},
   "tags": ["tag1", "tag2", "tag3", "..."],
   "hook_type": "detected hook type",
   "structure_used": "PAS|BAB|Contrarian",
@@ -132,6 +140,7 @@ Return ONLY valid JSON, no extra text:
     required String dump,
     required bool forLinkedIn,
     required bool forX,
+    bool linkInFirstComment = true,
     String hookType = 'auto',
     String structure = 'auto',
     String endWithQuestion = 'auto',
@@ -151,6 +160,7 @@ Return ONLY valid JSON, no extra text:
       dump: dump,
       forLinkedIn: forLinkedIn,
       forX: forX,
+      linkInFirstComment: linkInFirstComment,
       hookType: hookType,
       structure: structure,
       endWithQuestion: endWithQuestion,
@@ -205,12 +215,22 @@ Return ONLY valid JSON, no extra text:
       }
 
       final parsed = jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
-      final tags =
-          (parsed['tags'] as List?)?.map((t) => t.toString()).toList() ?? [];
+      final tags = (parsed['tags'] as List?)
+              ?.map((t) => t.toString())
+              .toSet()
+              .toList() ??
+          [];
+
+      String? emptyToNull(dynamic v) {
+        final s = v as String?;
+        return (s == null || s.isEmpty) ? null : s;
+      }
 
       return PolishResult(
         linkedinContent: parsed['linkedin_content'] as String?,
         twitterContent: parsed['twitter_content'] as String?,
+        linkedinFirstComment: emptyToNull(parsed['linkedin_first_comment']),
+        twitterFirstComment: emptyToNull(parsed['twitter_first_comment']),
         tags: tags,
         hookType: parsed['hook_type'] as String?,
         structureUsed: parsed['structure_used'] as String?,
@@ -433,6 +453,67 @@ Rules:
       return parsed.map((e) => e.toString()).toSet().toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  Future<({List<String>? tags, String? error})> filterTrendingTags(List<String> rawTags) async {
+    if (apiKey.isEmpty) return (tags: null, error: 'Gemini API key not configured');
+    if (rawTags.isEmpty) return (tags: null, error: 'No tags to filter');
+
+    final tagsJson = jsonEncode(rawTags);
+    final prompt = '''
+You are a tech hashtag curator. Given this list of tags fetched from dev.to trending articles, filter and return ONLY the tags that are real, widely-used hashtags on LinkedIn, X (Twitter), and dev.to.
+
+Tags: $tagsJson
+
+Rules:
+- ONLY keep tags directly related to: programming languages, frameworks, libraries, tools, cloud platforms, AI/ML, DevOps, databases, or software engineering practices
+- Remove event/challenge tags (e.g. "githubchallenge", "gemmachallenge", "googleiochallenge", "gamechallenge")
+- Remove community/meta tags (e.g. "watercooler", "weeklyretro", "top7", "showdev", "discuss", "devjournal", "jokes", "hiring", "meta")
+- Remove non-technical tags (e.g. "motivation", "mentalhealth", "career", "leadership", "marketing", "freelance", "transparency")
+- Remove vague/generic tags (e.g. "news", "resources", "opportunities", "learning", "community", "turtle", "bunny", "darkfactory")
+- Keep real tech tags like: "javascript", "react", "ai", "webdev", "python", "docker", "aws", "typescript", "nodejs", "flutter"
+- Do NOT rename, modify, or reformat any tag — return them exactly as they appear in the input
+- Do NOT add any new tags that are not in the input list
+- Return ONLY a valid JSON array of strings, nothing else
+''';
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/models/$_model:generateContent?key=$apiKey'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': prompt},
+                  ],
+                },
+              ],
+              'generationConfig': {'temperature': 0.2, 'maxOutputTokens': 1024},
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode != 200) {
+        return (tags: null, error: 'Gemini API returned status ${response.statusCode}: ${response.body}');
+      }
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final text =
+          body['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+      if (text == null) return (tags: null, error: 'Gemini returned empty response');
+
+      final arrayMatch = RegExp(r'\[[\s\S]*\]').firstMatch(text);
+      if (arrayMatch == null) return (tags: null, error: 'Gemini response not valid JSON array: $text');
+
+      final parsed = jsonDecode(arrayMatch.group(0)!) as List;
+      final result = parsed.map((e) => e.toString()).toList();
+      if (result.isEmpty) return (tags: null, error: 'Gemini filter returned empty list');
+      return (tags: result, error: null);
+    } catch (e) {
+      return (tags: null, error: 'Gemini filter exception: $e');
     }
   }
 }

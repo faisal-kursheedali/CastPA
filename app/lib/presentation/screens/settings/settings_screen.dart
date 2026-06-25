@@ -986,6 +986,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SwitchListTile(
+                        secondary: const Icon(Icons.tag),
+                        title: const Text('Dump All Trending Tags'),
+                        subtitle: const Text('Add all trending tags to posts instead of RAG selection'),
+                        value: settings.dumpTrendingTags,
+                        onChanged: (v) async {
+                          await ref.read(settingsNotifierProvider.notifier).save(
+                            settings.copyWith(dumpTrendingTags: v),
+                          );
+                        },
+                      ),
+                      const Divider(),
+                      DropdownButtonFormField<String>(
+                        value: settings.tagFormat,
+                        decoration: const InputDecoration(
+                          labelText: 'Tag Format',
+                          helperText: 'Format multi-word tags: spaces are converted to this style',
+                          prefixIcon: Icon(Icons.text_format),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'camelCase', child: Text('camelCase (helloWorld)')),
+                          DropdownMenuItem(value: 'underscore', child: Text('underscore (hello_world)')),
+                        ],
+                        onChanged: (v) async {
+                          if (v == null) return;
+                          await ref.read(settingsNotifierProvider.notifier).save(
+                            settings.copyWith(tagFormat: v),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _trendFetchCountCtrl,
                         decoration: const InputDecoration(

@@ -12,6 +12,7 @@ import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/presentation/screens/post/post_edit_tab.dart' show mediaItemsByIdsProvider;
 import 'package:castpa/presentation/widgets/preview/linkedin_preview_card.dart';
 import 'package:castpa/presentation/widgets/preview/x_preview_card.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 class PostPreviewTab extends ConsumerWidget {
   final bool showPublishActions;
@@ -41,11 +42,11 @@ class PostPreviewTab extends ConsumerWidget {
     final allTags = [
       ...post.postBaseTags,
       ...post.trendsBasePublishTags,
-    ];
+    ].toSet().toList();
 
     String contentWithTags(String base) => allTags.isEmpty
         ? base
-        : '$base\n\n${allTags.map((t) => t.startsWith('#') ? t : '#$t').join(' ')}';
+        : '$base\n\n${allTags.map((t) => toHashtag(t, format: settings.tagFormat)).join(' ')}';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -59,6 +60,7 @@ class PostPreviewTab extends ConsumerWidget {
               _PreviewHeader(
                 label: 'LinkedIn Preview',
                 content: contentWithTags(post.linkedinContent!),
+                firstComment: post.linkInFirstComment ? post.linkedinFirstComment : null,
                 platform: Platform.linkedin,
                 post: post,
                 showCopyToPlatform: settings.copyToLinkedin &&
@@ -71,6 +73,7 @@ class PostPreviewTab extends ConsumerWidget {
                 content: post.linkedinContent!,
                 tags: allTags,
                 mediaPaths: mediaPaths,
+                firstComment: post.linkInFirstComment ? post.linkedinFirstComment : null,
               ),
               const SizedBox(height: 24),
             ],
@@ -78,6 +81,7 @@ class PostPreviewTab extends ConsumerWidget {
               _PreviewHeader(
                 label: 'X Preview',
                 content: contentWithTags(post.twitterContent!),
+                firstComment: post.linkInFirstComment ? post.twitterFirstComment : null,
                 platform: Platform.x,
                 post: post,
                 showCopyToPlatform: settings.copyToX &&
@@ -90,6 +94,7 @@ class PostPreviewTab extends ConsumerWidget {
                 content: post.twitterContent!,
                 tags: allTags,
                 mediaPaths: mediaPaths,
+                firstComment: post.linkInFirstComment ? post.twitterFirstComment : null,
               ),
               const SizedBox(height: 24),
             ],
@@ -149,6 +154,7 @@ class _EmptyPreviewState extends StatelessWidget {
 class _PreviewHeader extends ConsumerStatefulWidget {
   final String label;
   final String content;
+  final String? firstComment;
   final Platform platform;
   final Post post;
   final bool showCopyToPlatform;
@@ -158,6 +164,7 @@ class _PreviewHeader extends ConsumerStatefulWidget {
   const _PreviewHeader({
     required this.label,
     required this.content,
+    this.firstComment,
     required this.platform,
     required this.post,
     required this.showCopyToPlatform,

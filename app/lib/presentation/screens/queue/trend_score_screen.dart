@@ -9,6 +9,7 @@ import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/trending.dart';
+import 'package:castpa/presentation/screens/queue/trending_detail_screen.dart';
 
 const _kThresholdKey = 'trend_score_threshold';
 
@@ -152,6 +153,13 @@ class _TrendScoreScreenState extends ConsumerState<TrendScoreScreen> {
       appBar: AppBar(
         title: const Text('Trend Score'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Trending Details',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TrendingDetailScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Recompute',
@@ -361,9 +369,7 @@ class _TrendingTopicsBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final topics = trending.rawTrendingTopics.isNotEmpty
-        ? trending.rawTrendingTopics
-        : trending.trendTopics;
+    final topics = trending.trendTopics;
 
     return Container(
       width: double.infinity,
@@ -382,7 +388,7 @@ class _TrendingTopicsBox extends StatelessWidget {
               Icon(Icons.trending_up, size: 16, color: theme.colorScheme.secondary),
               const SizedBox(width: 6),
               Text(
-                'Trending Topics',
+                'Trending Topics (${topics.length})',
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: theme.colorScheme.secondary,
                   fontWeight: FontWeight.bold,

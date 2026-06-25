@@ -49,16 +49,27 @@ class TrendingService {
       errors.add('No trend topics returned — Gemini quota may be exhausted');
     }
 
+    bool geminiFilterSuccess = false;
+    if (trendTopics.isNotEmpty && _geminiService.apiKey.isNotEmpty) {
+      final result = await _geminiService.filterTrendingTags(trendTopics);
+      if (result.tags != null) {
+        trendTopics = result.tags!;
+        geminiFilterSuccess = true;
+      } else {
+        errors.add(result.error ?? 'Gemini filter failed');
+      }
+    }
+
     final platform = trendTopics.isNotEmpty ? 'google_trends+gemini' : 'gemini';
 
-    // Embed locally using MiniLM (or empty if model not yet added).
+    // Embed the final tags (Gemini-filtered or raw fallback).
     List<double> fullEmbedding = [];
     final List<List<double>> eachEmbedding = [];
-    if (rawTrendingTopics.isNotEmpty) {
+    if (trendTopics.isNotEmpty) {
       fullEmbedding = await _embeddingService.embedChunked(
-        rawTrendingTopics.join(' '),
+        trendTopics.join(' '),
       );
-      for (final topic in rawTrendingTopics) {
+      for (final topic in trendTopics) {
         final v = await _embeddingService.embedChunked(topic);
         eachEmbedding.add(v);
       }
@@ -74,6 +85,7 @@ class TrendingService {
       eachEmbedding: eachEmbedding,
       platform: platform,
       fetchError: errors.isEmpty ? null : errors.join(' | '),
+      geminiFilterSuccess: geminiFilterSuccess,
     );
 
     await _trendingRepo.saveTrending(trending);
@@ -198,5 +210,5 @@ class TrendingService {
 
   /// Normalises raw topic strings: lowercase and spaces → underscores.
   List<String> _normaliseTopics(List<String> raw) =>
-      raw.map((t) => t.toLowerCase().replaceAll(RegExp(r'\s+'), '_')).toList();
+      raw.map((t) => t.trim()).toList();
 }
