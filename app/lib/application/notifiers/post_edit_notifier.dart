@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:castpa/application/notifiers/post_list_notifier.dart';
@@ -6,10 +7,29 @@ import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/enums.dart';
+import 'package:castpa/domain/entities/trending.dart';
+import 'package:castpa/application/providers/settings_notifier.dart';
+import 'package:castpa/domain/entities/app_settings.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 enum SaveState { idle, saving, saved, deleted, error }
 
 enum SubmitResult { draft, pending, removed }
+
+enum RagStatus { idle, processing, done, empty }
+
+class RagTagScore {
+  final String tag;
+  final double score;
+  const RagTagScore(this.tag, this.score);
+}
+
+class RagDebugData {
+  final Map<String, List<RagTagScore>> perTagResults;
+  final List<RagTagScore> merged;
+  final List<RagTagScore> final5;
+  const RagDebugData({this.perTagResults = const {}, this.merged = const [], this.final5 = const []});
+}
 
 class PostEditState {
   final Post post;
@@ -18,6 +38,11 @@ class PostEditState {
   final bool isPolishing;
   final String? polishError;
   final bool isSubmitting;
+  final Set<String> selectedTrendTags;
+  final Set<String> ragSuggestedTags;
+  final RagStatus ragStatus;
+  final RagDebugData? ragDebugData;
+  final bool dumpTrendingTags;
 
   const PostEditState({
     required this.post,
@@ -26,6 +51,11 @@ class PostEditState {
     this.isPolishing = false,
     this.polishError,
     this.isSubmitting = false,
+    this.selectedTrendTags = const {},
+    this.ragSuggestedTags = const {},
+    this.ragStatus = RagStatus.idle,
+    this.ragDebugData,
+    this.dumpTrendingTags = true,
   });
 
   PostEditState copyWith({
@@ -35,6 +65,11 @@ class PostEditState {
     bool? isPolishing,
     String? polishError,
     bool? isSubmitting,
+    Set<String>? selectedTrendTags,
+    Set<String>? ragSuggestedTags,
+    RagStatus? ragStatus,
+    RagDebugData? ragDebugData,
+    bool? dumpTrendingTags,
     bool clearPolishError = false,
     bool clearSaveError = false,
   }) {
@@ -45,6 +80,11 @@ class PostEditState {
       isPolishing: isPolishing ?? this.isPolishing,
       polishError: clearPolishError ? null : polishError ?? this.polishError,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      selectedTrendTags: selectedTrendTags ?? this.selectedTrendTags,
+      ragSuggestedTags: ragSuggestedTags ?? this.ragSuggestedTags,
+      ragStatus: ragStatus ?? this.ragStatus,
+      ragDebugData: ragDebugData ?? this.ragDebugData,
+      dumpTrendingTags: dumpTrendingTags ?? this.dumpTrendingTags,
     );
   }
 }
@@ -54,17 +94,21 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
   Timer? _debounce;
   bool _isNew = false;
 
+  String get _tagFormat =>
+      (ref.read(settingsNotifierProvider).valueOrNull ?? const AppSettings()).tagFormat;
+
   @override
   PostEditState build() {
     ref.onDispose(() => _debounce?.cancel());
     _isNew = true;
+    final settings = ref.read(settingsNotifierProvider).valueOrNull ?? const AppSettings();
     return PostEditState(
+      dumpTrendingTags: settings.dumpTrendingTags,
       post: Post(
         id: _uuid.v4(),
         dump: '',
         links: [],
         postBaseTags: [],
-        categoryBasePublishTags: [],
         trendsBasePublishTags: [],
         mediaIds: [],
         selectedPlatforms: [Platform.linkedin, Platform.x],
@@ -78,7 +122,39 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
 
   void loadPost(Post post) {
     _isNew = false;
-    state = PostEditState(post: post);
+    final settings = ref.read(settingsNotifierProvider).valueOrNull ?? const AppSettings();
+    final fmt = settings.tagFormat;
+    final reformattedBaseTags = post.postBaseTags.map((t) => toTag(t, format: fmt)).toList();
+    final tagsChanged = reformattedBaseTags.join() != post.postBaseTags.join();
+    final loadedPost = tagsChanged
+        ? post.copyWith(postBaseTags: reformattedBaseTags, updatedAt: DateTime.now())
+        : post;
+    state = PostEditState(
+      post: loadedPost,
+      dumpTrendingTags: settings.dumpTrendingTags,
+      ragSuggestedTags: loadedPost.trendsBasePublishTags.toSet().difference(loadedPost.userAddedTrendTags.toSet()),
+      selectedTrendTags: {...loadedPost.trendsBasePublishTags, ...loadedPost.userAddedTrendTags},
+    );
+    if (tagsChanged) {
+      updatePostBaseTags(reformattedBaseTags);
+    } else {
+      applyTrendingTagMode();
+    }
+  }
+
+  /// Patches only publish-related fields after a manual copy-to-platform publish.
+  /// Preserves all other state (checkbox selections, polish state, etc.).
+  void applyPublishedPlatform(Platform platform) {
+    final updatedPublished = [...state.post.publishedPlatforms, platform];
+    final isFullyPublished = state.post.selectedPlatforms.every((p) => updatedPublished.contains(p));
+    final newStatus = isFullyPublished ? PostStatus.published : PostStatus.partialPublished;
+    state = state.copyWith(
+      post: state.post.copyWith(
+        publishedPlatforms: updatedPublished,
+        status: newStatus,
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   // dump change → ensure status is draft (safe default for preview)
@@ -105,6 +181,24 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     ),
   );
 
+  void updateLinkInFirstComment(bool value) => _updateAndScheduleSave(
+    state.post.copyWith(linkInFirstComment: value, updatedAt: DateTime.now()),
+  );
+
+  void updateLinkedinFirstComment(String value) => _updateAndScheduleSave(
+    state.post.copyWith(
+      linkedinFirstComment: value.isEmpty ? null : value,
+      updatedAt: DateTime.now(),
+    ),
+  );
+
+  void updateTwitterFirstComment(String value) => _updateAndScheduleSave(
+    state.post.copyWith(
+      twitterFirstComment: value.isEmpty ? null : value,
+      updatedAt: DateTime.now(),
+    ),
+  );
+
   void updateLinks(List<String> links) => _updateAndScheduleSave(
     state.post.copyWith(links: links, updatedAt: DateTime.now()),
   );
@@ -114,20 +208,249 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
   );
 
   void updateCategoryId(String? categoryId) => _updateAndScheduleSave(
-    state.post.copyWith(categoryId: categoryId, updatedAt: DateTime.now()),
+    state.post.copyWith(
+      categoryId: categoryId,
+      clearCategoryId: categoryId == null,
+      updatedAt: DateTime.now(),
+    ),
   );
 
-  void updatePostBaseTags(List<String> tags) => _updateAndScheduleSave(
-    state.post.copyWith(postBaseTags: tags, updatedAt: DateTime.now()),
-  );
+  void toggleDumpTrendingTags() {
+    final newValue = !state.dumpTrendingTags;
+    state = state.copyWith(dumpTrendingTags: newValue);
+    applyTrendingTagMode();
+  }
 
-  void updateCategoryBasePublishTags(List<String> tags) => _updateAndScheduleSave(
-    state.post.copyWith(categoryBasePublishTags: tags, updatedAt: DateTime.now()),
-  );
+  Future<void> applyTrendingTagMode() async {
+    final trendingRepo = ref.read(trendingRepositoryProvider);
+    final trending = await trendingRepo.getMostRecent();
+    if (trending == null) return;
+
+    if (state.dumpTrendingTags) {
+      final allTags = trending.trendTopics.map((t) => toTag(t, format: _tagFormat)).toSet();
+      state = state.copyWith(
+        selectedTrendTags: allTags,
+        ragSuggestedTags: allTags,
+        ragStatus: RagStatus.done,
+      );
+      _updateAndScheduleSave(
+        state.post.copyWith(
+          trendsBasePublishTags: allTags.toList(),
+          userAddedTrendTags: [],
+          updatedAt: DateTime.now(),
+        ),
+      );
+    } else {
+      if (state.post.postBaseTags.isEmpty) {
+        state = state.copyWith(
+          selectedTrendTags: {},
+          ragSuggestedTags: {},
+          ragStatus: RagStatus.empty,
+        );
+        _updateAndScheduleSave(
+          state.post.copyWith(
+            trendsBasePublishTags: [],
+            userAddedTrendTags: [],
+            updatedAt: DateTime.now(),
+          ),
+        );
+      } else {
+        final settings = await ref.read(settingsRepositoryProvider).getSettings();
+        await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+      }
+    }
+  }
+
+  void updatePostBaseTags(List<String> tags) {
+    _updateAndScheduleSave(
+      state.post.copyWith(postBaseTags: tags, updatedAt: DateTime.now()),
+    );
+    _embedAndFilterTags(tags);
+  }
+
+  Future<void> _embedAndFilterTags(List<String> tags) async {
+    if (tags.isEmpty) {
+      state = state.copyWith(
+        selectedTrendTags: {},
+        ragSuggestedTags: {},
+        ragStatus: RagStatus.empty,
+        ragDebugData: const RagDebugData(),
+      );
+      _updateAndScheduleSave(
+        state.post.copyWith(
+          postBaseTagsEmbedding: '[]',
+          trendsBasePublishTags: [],
+          userAddedTrendTags: [],
+          updatedAt: DateTime.now(),
+        ),
+      );
+      return;
+    }
+
+    state = state.copyWith(ragStatus: RagStatus.processing);
+
+    // Embed each tag individually and store as JSON array of arrays
+    final embService = ref.read(embeddingServiceProvider);
+    final allEmbeddings = <List<double>>[];
+    for (final tag in tags) {
+      final tagText = tag
+          .replaceAllMapped(RegExp(r'[A-Z]'), (m) => '_${m[0]}')
+          .replaceAll('_', ' ')
+          .toLowerCase()
+          .trim();
+      final vec = await embService.embedChunked(tagText);
+      allEmbeddings.add(vec);
+    }
+
+    final embJson = jsonEncode(allEmbeddings);
+    _updateAndScheduleSave(
+      state.post.copyWith(postBaseTagsEmbedding: embJson, updatedAt: DateTime.now()),
+    );
+
+    final trendingRepo = ref.read(trendingRepositoryProvider);
+    final trending = await trendingRepo.getMostRecent();
+    if (state.dumpTrendingTags) {
+      if (trending != null) {
+        final allTags = trending.trendTopics.map((t) => toTag(t, format: _tagFormat)).toSet();
+        state = state.copyWith(
+          selectedTrendTags: allTags,
+          ragSuggestedTags: allTags,
+          ragStatus: RagStatus.done,
+        );
+        _updateAndScheduleSave(
+          state.post.copyWith(
+            trendsBasePublishTags: allTags.toList(),
+            userAddedTrendTags: [],
+            updatedAt: DateTime.now(),
+          ),
+        );
+      }
+    } else {
+      final settingsRepo = ref.read(settingsRepositoryProvider);
+      final settings = await settingsRepo.getSettings();
+      await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+    }
+  }
 
   void updateTrendsBasePublishTags(List<String> tags) => _updateAndScheduleSave(
     state.post.copyWith(trendsBasePublishTags: tags, updatedAt: DateTime.now()),
   );
+
+  void removeRagSuggestedTag(String tag) {
+    final rag = Set<String>.from(state.ragSuggestedTags)..remove(tag);
+    _updateTrendSets(rag, state.post.userAddedTrendTags);
+  }
+
+  void addUserTrendTag(String tag) {
+    final userAdded = [...state.post.userAddedTrendTags, tag];
+    _updateTrendSets(state.ragSuggestedTags, userAdded);
+  }
+
+  void removeUserTrendTag(String tag) {
+    final userAdded = state.post.userAddedTrendTags.where((t) => t != tag).toList();
+    _updateTrendSets(state.ragSuggestedTags, userAdded);
+  }
+
+  void _updateTrendSets(Set<String> rag, List<String> userAdded) {
+    final allSelected = {...rag, ...userAdded};
+    state = state.copyWith(ragSuggestedTags: rag, selectedTrendTags: allSelected);
+    _updateAndScheduleSave(
+      state.post.copyWith(
+        userAddedTrendTags: userAdded,
+        trendsBasePublishTags: allSelected.toList(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> filterTrendingTagsByRag(Trending? trending, {int? topK}) async {
+    if (trending == null) return;
+    final post = state.post;
+    if (post.postBaseTags.isEmpty) return;
+
+    final embStr = post.postBaseTagsEmbedding;
+    if (embStr == null || embStr.isEmpty || embStr == '[]') return;
+
+    state = state.copyWith(ragStatus: RagStatus.processing);
+    final embService = ref.read(embeddingServiceProvider);
+    final trendTags = trending.trendTopics
+        .map((t) => toTag(t, format: _tagFormat))
+        .toList();
+
+    // Parse cached per-tag embeddings
+    final List<dynamic> rawEmbeddings = jsonDecode(embStr);
+    final tagEmbeddings = rawEmbeddings
+        .map((e) => (e as List<dynamic>).map((v) => (v as num).toDouble()).toList())
+        .toList();
+
+    final mergedScores = <String, double>{};
+    final perTagDebug = <String, List<RagTagScore>>{};
+    const perTagTopN = 5;
+
+    for (int t = 0; t < post.postBaseTags.length && t < tagEmbeddings.length; t++) {
+      final tagVec = tagEmbeddings[t];
+      if (tagVec.isEmpty) continue;
+
+      final postTagWords = post.postBaseTags[t]
+          .replaceAllMapped(RegExp(r'[A-Z]'), (m) => '_${m[0]}')
+          .toLowerCase()
+          .split(RegExp(r'[_\s]+'))
+          .where((w) => w.isNotEmpty)
+          .toSet();
+
+      final tagScores = <String, double>{};
+      for (int i = 0; i < trendTags.length; i++) {
+        final trendWords = trendTags[i]
+            .replaceAllMapped(RegExp(r'[A-Z]'), (m) => '_${m[0]}')
+            .toLowerCase()
+            .split(RegExp(r'[_\s]+'))
+            .where((w) => w.isNotEmpty)
+            .toSet();
+        final keywordMatch = trendWords.intersection(postTagWords).isNotEmpty ? 0.5 : 0.0;
+
+        double embScore = 0.0;
+        if (i < trending.eachEmbedding.length && trending.eachEmbedding[i].isNotEmpty) {
+          embScore = embService.cosineSimilarity(tagVec, trending.eachEmbedding[i]);
+        }
+        tagScores[trendTags[i]] = embScore + keywordMatch;
+      }
+
+      final sorted = tagScores.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      final top = sorted.take(perTagTopN).toList();
+      perTagDebug[post.postBaseTags[t]] = top.map((e) => RagTagScore(e.key, e.value)).toList();
+      for (final entry in top) {
+        if (!mergedScores.containsKey(entry.key) || entry.value > mergedScores[entry.key]!) {
+          mergedScores[entry.key] = entry.value;
+        }
+      }
+    }
+
+    final finalSorted = mergedScores.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final mergedDebug = finalSorted.map((e) => RagTagScore(e.key, e.value)).toList();
+    final topCount = topK ?? 5;
+    final suggested = finalSorted.take(topCount).map((e) => e.key).toSet();
+    final finalDebug = finalSorted.take(topCount).map((e) => RagTagScore(e.key, e.value)).toList();
+
+    // Remove any user-added tags that RAG now suggests (no duplicates)
+    final userAdded = state.post.userAddedTrendTags
+        .where((t) => !suggested.contains(t))
+        .toList();
+    final allSelected = {...suggested, ...userAdded};
+
+    state = state.copyWith(
+      selectedTrendTags: allSelected,
+      ragSuggestedTags: suggested,
+      ragStatus: suggested.isEmpty ? RagStatus.empty : RagStatus.done,
+      ragDebugData: RagDebugData(perTagResults: perTagDebug, merged: mergedDebug, final5: finalDebug),
+    );
+    _updateAndScheduleSave(
+      state.post.copyWith(
+        trendsBasePublishTags: allSelected.toList(),
+        userAddedTrendTags: userAdded,
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
 
   void updateMediaIds(List<String> ids) => _updateAndScheduleSave(
     state.post.copyWith(mediaIds: ids, updatedAt: DateTime.now()),
@@ -176,7 +499,11 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
   Future<void> forceSave() => _save();
 
   // Polish: fill platform fields + tags from Gemini. No embedding here.
-  Future<void> polish() async {
+  Future<void> polish({
+    String hookType = 'auto',
+    String structure = 'auto',
+    String endWithQuestion = 'auto',
+  }) async {
     final post = state.post;
     if (post.dump.isEmpty) {
       state = state.copyWith(polishError: 'Please add some content to the dump first.');
@@ -194,10 +521,19 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
 
     state = state.copyWith(isPolishing: true, clearPolishError: true);
     try {
+      final settings = await ref.read(settingsRepositoryProvider).getSettings();
       final result = await gemini.polishPost(
         dump: post.dump,
         forLinkedIn: post.selectedPlatforms.contains(Platform.linkedin),
         forX: post.selectedPlatforms.contains(Platform.x),
+        linkInFirstComment: post.linkInFirstComment,
+        hookType: hookType,
+        structure: structure,
+        endWithQuestion: endWithQuestion,
+        postTagMode: settings.postTagMode,
+        postTagMin: settings.postTagMin,
+        postTagMax: settings.postTagMax,
+        postTagExact: settings.postTagExact,
       );
 
       if (result.hasError) {
@@ -205,19 +541,62 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
         return;
       }
 
+      final newTags = result.tags.isNotEmpty
+          ? result.tags.map((t) => toTag(t, format: _tagFormat)).toList()
+          : post.postBaseTags;
+
+      // Embed each tag individually
+      final embService = ref.read(embeddingServiceProvider);
+      final allEmbeddings = <List<double>>[];
+      for (final tag in newTags) {
+        final tagText = tag
+            .replaceAllMapped(RegExp(r'[A-Z]'), (m) => '_${m[0]}')
+            .replaceAll('_', ' ')
+            .toLowerCase()
+            .trim();
+        final vec = await embService.embedChunked(tagText);
+        allEmbeddings.add(vec);
+      }
+
       final updated = post.copyWith(
         linkedinContent: result.linkedinContent ?? post.linkedinContent,
         twitterContent: result.twitterContent ?? post.twitterContent,
-        postBaseTags: result.tags.isNotEmpty
-            ? result.tags.map((t) => t.trim().replaceAll(' ', '_')).toList()
-            : post.postBaseTags,
+        linkedinFirstComment: result.linkedinFirstComment,
+        twitterFirstComment: result.twitterFirstComment,
+        clearLinkedinFirstComment: result.linkedinFirstComment == null && post.linkInFirstComment,
+        clearTwitterFirstComment: result.twitterFirstComment == null && post.linkInFirstComment,
+        postBaseTags: newTags,
+        postBaseTagsEmbedding: jsonEncode(allEmbeddings),
         status: PostStatus.draft,
-        isEmbedded: false, // content changed, embedding stale
+        isEmbedded: false,
         updatedAt: DateTime.now(),
       );
 
       state = state.copyWith(post: updated, isPolishing: false);
       await _save();
+
+      // Apply trending tags based on mode
+      final trendingRepo = ref.read(trendingRepositoryProvider);
+      final trending = await trendingRepo.getMostRecent();
+      if (state.dumpTrendingTags) {
+        if (trending != null) {
+          final allTags = trending.trendTopics.map((t) => toTag(t, format: _tagFormat)).toSet();
+          state = state.copyWith(
+            selectedTrendTags: allTags,
+            ragSuggestedTags: allTags,
+            ragStatus: RagStatus.done,
+          );
+          _updateAndScheduleSave(
+            state.post.copyWith(
+              trendsBasePublishTags: allTags.toList(),
+              userAddedTrendTags: [],
+              updatedAt: DateTime.now(),
+            ),
+          );
+        }
+      } else {
+        await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+      }
     } catch (e) {
       state = state.copyWith(isPolishing: false, polishError: 'Polish failed: $e');
     }
@@ -263,8 +642,15 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
     state = state.copyWith(isSubmitting: true, clearPolishError: true);
     try {
       final embService = ref.read(embeddingServiceProvider);
-      final contentForEmbedding = post.linkedinContent ?? post.twitterContent!;
-      final vec = await embService.embed(contentForEmbedding);
+
+      final rawContent = post.linkedinContent ?? post.twitterContent!;
+
+      final allTags = post.postBaseTags.join(' ');
+
+      // Append all tags to full content before chunking
+      final contentWithTags = allTags.isNotEmpty ? '$rawContent $allTags' : rawContent;
+
+      final vec = await embService.embedChunked(contentWithTags);
       final embedding = vec.isNotEmpty ? vec.join(',') : post.embedding;
 
       final updated = post.copyWith(
@@ -275,12 +661,20 @@ class PostEditNotifier extends AutoDisposeNotifier<PostEditState> {
       );
       state = state.copyWith(post: updated, isSubmitting: false);
       await _save();
+
+      // RAG-filter trending tags using the fresh embedding
+      final trendingRepo = ref.read(trendingRepositoryProvider);
+      final trending = await trendingRepo.getMostRecent();
+      final settings = await ref.read(settingsRepositoryProvider).getSettings();
+      await filterTrendingTagsByRag(trending, topK: settings.trendTagsPerPost);
+
       return SubmitResult.pending;
     } catch (e) {
       state = state.copyWith(isSubmitting: false, polishError: 'Submit failed: $e');
       return null;
     }
   }
+
 
   Future<bool> discardIfEmpty() async {
     if (_isNew && !state.post.hasContent) return true;

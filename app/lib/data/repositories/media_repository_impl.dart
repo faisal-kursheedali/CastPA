@@ -52,6 +52,8 @@ class MediaRepositoryImpl implements MediaRepository {
     final rows = await (_db.select(_db.media)
           ..where((t) => t.id.isIn(ids)))
         .get();
-    return rows.map(_fromRow).toList();
+    final byId = {for (final r in rows) r.id: _fromRow(r)};
+    // Preserve caller-supplied order
+    return ids.map((id) => byId[id]).whereType<MediaItem>().toList();
   }
 }

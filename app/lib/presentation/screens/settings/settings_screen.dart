@@ -1,12 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:castpa/application/providers/database_provider.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/settings_notifier.dart';
 import 'package:castpa/application/providers/bootstrap_provider.dart';
+import 'package:castpa/data/database/app_database.dart';
 import 'package:castpa/data/services/bootstrap_service.dart';
 import 'package:castpa/data/services/oauth_service.dart';
 import 'package:castpa/domain/entities/app_settings.dart';
@@ -47,6 +50,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Publishing
   late TextEditingController _publishPerWeekCtrl;
 
+  // Trending
+  late TextEditingController _trendFetchCountCtrl;
+  late TextEditingController _trendTagsPerPostCtrl;
+
+  // Post
+  late TextEditingController _postTagMinCtrl;
+  late TextEditingController _postTagMaxCtrl;
+  late TextEditingController _postTagExactCtrl;
+
   // Unlink
   int _unlinkTapCount = 0;
   DateTime? _lastUnlinkTap;
@@ -69,6 +81,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _xClientIdCtrl = TextEditingController();
     _xClientSecretCtrl = TextEditingController();
     _publishPerWeekCtrl = TextEditingController();
+    _trendFetchCountCtrl = TextEditingController();
+    _trendTagsPerPostCtrl = TextEditingController();
+    _postTagMinCtrl = TextEditingController();
+    _postTagMaxCtrl = TextEditingController();
+    _postTagExactCtrl = TextEditingController();
   }
 
   @override
@@ -81,6 +98,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _xClientIdCtrl.dispose();
     _xClientSecretCtrl.dispose();
     _publishPerWeekCtrl.dispose();
+    _trendFetchCountCtrl.dispose();
+    _trendTagsPerPostCtrl.dispose();
+    _postTagMinCtrl.dispose();
+    _postTagMaxCtrl.dispose();
+    _postTagExactCtrl.dispose();
     super.dispose();
   }
 
@@ -169,6 +191,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Saved')));
+    }
+  }
+
+  Future<void> _savePostSettings(AppSettings current) async {
+    final min = int.tryParse(_postTagMinCtrl.text) ?? 3;
+    final max = int.tryParse(_postTagMaxCtrl.text) ?? 10;
+    final exact = int.tryParse(_postTagExactCtrl.text) ?? 5;
+    if (current.postTagMode == 'range' && max <= min) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Max must be greater than Min')),
+      );
+      return;
+    }
+    await ref.read(settingsNotifierProvider.notifier).save(
+      current.copyWith(postTagMin: min, postTagMax: max, postTagExact: exact),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved')));
+    }
+  }
+
+  Future<void> _saveTrendingSettings(AppSettings current) async {
+    final fetchCount = int.tryParse(_trendFetchCountCtrl.text) ?? 7;
+    final tagsPerPost = int.tryParse(_trendTagsPerPostCtrl.text) ?? 5;
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .save(current.copyWith(trendFetchCount: fetchCount, trendTagsPerPost: tagsPerPost));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved')));
     }
   }
 
@@ -320,33 +371,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final bootstrapService = ref.read(bootstrapServiceProvider);
     final config = ref.read(bootstrapConfigProvider).valueOrNull;
 
-    // 1. Export current castpa.db into the sync folder so it can be restored
-    //    when the user links this folder again.
+    // 1. The DB lives directly in the sync folder. On unlink, copy it to the
+    //    sandboxed app-documents location so the app still has data afterwards.
     if (config?.syncFolderPath != null && config!.syncFolderPath!.isNotEmpty) {
-      final srcPath = await bootstrapService.dbPath();
-      final destPath = '${config.syncFolderPath}/castpa.db';
-      final dir = Directory(config.syncFolderPath!);
-      if (!await dir.exists()) {
-        try {
-          await dir.create(recursive: true);
-        } catch (_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Cannot create sync folder at "${config.syncFolderPath}". '
-                  'Please grant folder access and try again.',
-                ),
-                duration: const Duration(seconds: 5),
-              ),
-            );
-          }
-          return;
-        }
+      final syncDbPath = '${config.syncFolderPath}/castpa.db';
+      final appDbPath = await bootstrapService.dbPath(); // app documents fallback
+      if (File(syncDbPath).existsSync() && syncDbPath != appDbPath) {
+        // ignore: avoid_print
+        print('[UNLINK] preserving castpa.db → $appDbPath');
+        await File(syncDbPath).copy(appDbPath);
       }
-      // ignore: avoid_print
-      print('[UNLINK] exporting castpa.db → $destPath');
-      await File(srcPath).copy(destPath);
+      // Swap the live DB connection to the app-documents copy.
+      final currentDb = ref.read(databaseProvider);
+      await currentDb.close();
+      ref.read(databaseProvider.notifier).state = AppDatabase(appDbPath);
     }
 
     // 2. Clear the path in local storage (SharedPreferences)
@@ -408,6 +446,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _genModelCtrl.text = settings.genModel ?? '';
           _embedModelCtrl.text = settings.embedModel ?? '';
           _publishPerWeekCtrl.text = settings.publishPerWeek.toString();
+          _trendFetchCountCtrl.text = settings.trendFetchCount.toString();
+          _trendTagsPerPostCtrl.text = settings.trendTagsPerPost.toString();
+          _postTagMinCtrl.text = settings.postTagMin.toString();
+          _postTagMaxCtrl.text = settings.postTagMax.toString();
+          _postTagExactCtrl.text = settings.postTagExact.toString();
           _linkedInClientIdCtrl.text = settings.linkedinClientId ?? '';
           _linkedInClientSecretCtrl.text = settings.linkedinClientSecret ?? '';
           _xClientIdCtrl.text = settings.xClientId ?? '';
@@ -844,6 +887,208 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // ── Post ─────────────────────────────────────────────────
+              _SectionHeader('Post'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Post Tag Count', style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Range', style: TextStyle(fontSize: 14)),
+                              value: 'range',
+                              groupValue: settings.postTagMode,
+                              onChanged: (val) => ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateWith((s) => s.copyWith(postTagMode: val)),
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Exact', style: TextStyle(fontSize: 14)),
+                              value: 'exact',
+                              groupValue: settings.postTagMode,
+                              onChanged: (val) => ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateWith((s) => s.copyWith(postTagMode: val)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (settings.postTagMode == 'range') ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _postTagMinCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Min Tags',
+                                  prefixIcon: Icon(Icons.arrow_downward),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _postTagMaxCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'Max Tags',
+                                  prefixIcon: Icon(Icons.arrow_upward),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        TextField(
+                          controller: _postTagExactCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Tag Count',
+                            prefixIcon: Icon(Icons.tag),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed: () => _savePostSettings(settings),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Trending ──────────────────────────────────────────────
+              _SectionHeader('Trending'),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SwitchListTile(
+                        secondary: const Icon(Icons.tag),
+                        title: const Text('Dump All Trending Tags'),
+                        subtitle: const Text('Add all trending tags to posts instead of RAG selection'),
+                        value: settings.dumpTrendingTags,
+                        onChanged: (v) async {
+                          await ref.read(settingsNotifierProvider.notifier).save(
+                            settings.copyWith(dumpTrendingTags: v),
+                          );
+                        },
+                      ),
+                      const Divider(),
+                      DropdownButtonFormField<String>(
+                        value: settings.tagFormat,
+                        decoration: const InputDecoration(
+                          labelText: 'Tag Format',
+                          helperText: 'Format multi-word tags: spaces are converted to this style',
+                          prefixIcon: Icon(Icons.text_format),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'camelCase', child: Text('camelCase (helloWorld)')),
+                          DropdownMenuItem(value: 'underscore', child: Text('underscore (hello_world)')),
+                        ],
+                        onChanged: (v) async {
+                          if (v == null) return;
+                          await ref.read(settingsNotifierProvider.notifier).save(
+                            settings.copyWith(tagFormat: v),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _trendFetchCountCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Dev.to Trend Fetch Count',
+                          helperText: 'Number of articles to fetch from dev.to for trending tags',
+                          prefixIcon: Icon(Icons.trending_up),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _trendTagsPerPostCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Trend Tags Per Post',
+                          helperText: 'Number of top trending tags to auto-select via RAG per post',
+                          prefixIcon: Icon(Icons.tag),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed: () => _saveTrendingSettings(settings),
+                          child: const Text('Save'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Manual Copy-to-Platform ───────────────────────────────
+              _SectionHeader('Manual Post (Copy to Platform)'),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.business_center_outlined),
+                      title: const Text('Copy to LinkedIn'),
+                      subtitle: const Text(
+                        'Shows a button to copy content and open LinkedIn.\n'
+                        'Note: Publishing is your responsibility — the app will mark the post as published when you tap the button.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: settings.copyToLinkedin,
+                      onChanged: (val) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateWith((s) => s.copyWith(copyToLinkedin: val));
+                      },
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.tag),
+                      title: const Text('Copy to X (Twitter)'),
+                      subtitle: const Text(
+                        'Shows a button to copy content and open X.\n'
+                        'Note: Publishing is your responsibility — the app will mark the post as published when you tap the button.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: settings.copyToX,
+                      onChanged: (val) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateWith((s) => s.copyWith(copyToX: val));
+                      },
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
 
               // ── Storage ───────────────────────────────────────────────
@@ -874,6 +1119,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ],
                       ),
+                      if (bootstrapConfig?.syncFolderPath != null &&
+                          bootstrapConfig!.syncFolderPath!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 6,
+                          children: [
+                            _FolderStatusChip(label: 'root', path: bootstrapConfig.syncFolderPath!),
+                            _FolderStatusChip(label: '.media', path: p.join(bootstrapConfig.syncFolderPath!, '.media')),
+                            _FolderStatusChip(label: 'share', path: p.join(bootstrapConfig.syncFolderPath!, 'share')),
+                            _FolderStatusChip(label: '.backups', path: p.join(bootstrapConfig.syncFolderPath!, '.backups')),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push('/folder-browser', extra: {
+                              'label': 'Storage Explorer',
+                              'path': bootstrapConfig.syncFolderPath!,
+                            }),
+                            icon: const Icon(Icons.folder_open, size: 18),
+                            label: const Text('Explore'),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
@@ -954,6 +1225,30 @@ class _LockedField extends StatelessWidget {
             : (value.isEmpty ? '—' : value),
         style: const TextStyle(fontSize: 14),
       ),
+    );
+  }
+}
+
+class _FolderStatusChip extends StatelessWidget {
+  final String label;
+  final String path;
+
+  const _FolderStatusChip({required this.label, required this.path});
+
+  @override
+  Widget build(BuildContext context) {
+    final exists = Directory(path).existsSync();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          exists ? Icons.check_circle : Icons.cancel,
+          size: 14,
+          color: exists ? Colors.green : Colors.red,
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
   }
 }

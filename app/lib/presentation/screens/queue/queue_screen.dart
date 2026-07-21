@@ -8,6 +8,7 @@ import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/category.dart';
+import 'package:castpa/presentation/screens/queue/trend_score_screen.dart';
 
 enum _SortMode { date, trend }
 
@@ -62,8 +63,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           )
           .toList();
     } else if (_timeFilter == 'week') {
-      final weekStart = now.subtract(Duration(days: now.weekday - 1));
-      filtered = filtered.where((p) => p.updatedAt.isAfter(weekStart)).toList();
+      final weekStartRaw = now.subtract(Duration(days: now.weekday - 1));
+      final weekStart = DateTime(weekStartRaw.year, weekStartRaw.month, weekStartRaw.day); // midnight
+      filtered = filtered.where((p) => !p.updatedAt.isBefore(weekStart)).toList();
     } else if (_timeFilter == 'month') {
       filtered = filtered
           .where(
@@ -203,6 +205,16 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
+          if (widget.status == PostStatus.pending ||
+              widget.status == PostStatus.partialPublished)
+            IconButton(
+              icon: const Icon(Icons.insights_outlined),
+              tooltip: 'Trend Score',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrendScoreScreen()),
+              ),
+            ),
           IconButton(
             icon: Icon(_isTableView ? Icons.list : Icons.table_rows_outlined),
             tooltip: _isTableView ? 'List view' : 'Table view',
@@ -242,6 +254,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
       ),
       body: Column(
         children: [
+          if (widget.status == PostStatus.pending || widget.status == PostStatus.partialPublished)
+            _LastPublishedBanner(categories: categoriesAsync.valueOrNull ?? []),
           _FilterBar(
             timeFilter: _timeFilter,
             selectedCategoryIds: _selectedCategoryIds,
@@ -261,19 +275,72 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                 final cats = categoriesAsync.valueOrNull ?? [];
                 var filtered = _applyFilters(posts, cats);
                 filtered = _applySort(filtered);
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No posts here',
-                      style: TextStyle(color: Colors.grey),
+                return Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      child: Text(
+                        '${filtered.length} ${filtered.length == 1 ? 'post' : 'posts'}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  );
-                }
-                if (_isTableView) {
-                  return _PostTable(posts: filtered, categories: cats);
-                }
-                return _PostList(posts: filtered, categories: cats);
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No posts here',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : _isTableView
+                              ? _PostTable(posts: filtered, categories: cats)
+                              : _PostList(posts: filtered, categories: cats),
+                    ),
+                  ],
+                );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LastPublishedBanner extends ConsumerWidget {
+  final List<Category> categories;
+  const _LastPublishedBanner({required this.categories});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final publishedAsync = ref.watch(postListProvider(PostStatus.published));
+    final posts = publishedAsync.valueOrNull;
+    final String categoryName;
+    if (posts == null || posts.isEmpty) {
+      categoryName = 'None';
+    } else {
+      final last = posts.reduce((a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b);
+      final category = categories.where((c) => c.id == last.categoryId).firstOrNull;
+      categoryName = category?.name ?? 'None';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: Theme.of(context).colorScheme.secondaryContainer.withAlpha(120),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 14, color: Theme.of(context).colorScheme.secondary),
+          const SizedBox(width: 6),
+          Text(
+            'Last published: $categoryName',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.secondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],

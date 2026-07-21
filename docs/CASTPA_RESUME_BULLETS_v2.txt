@@ -1,0 +1,22 @@
+CastPA — AI-Powered Cross-Platform Social Media Content Engine
+
+1. Built a local-first Flutter app (macOS + Android) where the entire state — 7-table SQLite DB,
+   media, backups — lives in a single folder; syncing that folder via Google Drive/Dropbox gives
+   instant multi-device access with zero cloud backend, zero accounts, zero servers
+
+2. Ran 2 on-device ML models with no cloud dependency: MiniLM-L6-v2 (384-dim embeddings via
+   TFLite) for semantic search and Whisper Base (~145 MB) for voice-to-text transcription;
+   used Gemini 2.5 Flash Lite for polishing raw dumps into LinkedIn (900–1,200 chars) and
+   X (≤220 chars) posts with 3–10 content-specific tags
+
+3. Built a custom RAG pipeline: individually embedded each post tag and each weekly dev.to
+   trending topic (384-dim), computed cosine similarity + keyword-match hybrid scores, and
+   auto-selected the top-5 most relevant trending hashtags per post from a 3-tier tag system
+
+4. Implemented OAuth 2.0 (LinkedIn + X/Twitter with PKCE) for direct in-app publishing with
+   image upload, plus a copy-to-clipboard flow that bundles polished content, hashtags, and
+   media files in a share folder for manual posting
+
+5. Designed a 4-stage post lifecycle (draft → pending → partial → published) with 800ms
+   debounced auto-save, full-post 384-dim embedding on submit for trend-matching, and
+   multi-device sync via file watcher with conflict detection and timestamped backups

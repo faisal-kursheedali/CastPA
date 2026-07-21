@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:castpa/application/notifiers/post_list_notifier.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/service_providers.dart';
 import 'package:castpa/application/providers/settings_notifier.dart';
+import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/presentation/widgets/common/weekly_progress_ring.dart';
+import 'package:castpa/presentation/screens/queue/trending_detail_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   DateTime get _weekStart {
     final now = DateTime.now();
-    return now.subtract(Duration(days: now.weekday - 1));
+    final raw = now.subtract(Duration(days: now.weekday - 1));
+    return DateTime(raw.year, raw.month, raw.day); // midnight Monday
   }
 
   @override
@@ -44,6 +48,10 @@ class HomeScreen extends ConsumerWidget {
 }
 
 final _publishedThisWeekProvider = FutureProvider.autoDispose.family((ref, DateTime weekStart) {
+  // Watch published/partialPublished lists so this re-fetches whenever a post
+  // is marked as published (via API or manual copy-to-platform).
+  ref.watch(postListProvider(PostStatus.published));
+  ref.watch(postListProvider(PostStatus.partialPublished));
   return ref.watch(postRepositoryProvider).getPostsPublishedInWeek(weekStart);
 });
 
@@ -222,7 +230,8 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
   Future<void> _fetch() async {
     setState(() => _fetching = true);
     try {
-      await ref.read(trendingServiceProvider).forceFetch();
+      final settings = ref.read(settingsNotifierProvider).valueOrNull;
+      await ref.read(trendingServiceProvider).forceFetch(trendFetchCount: settings?.trendFetchCount ?? 7);
       ref.invalidate(latestTrendingProvider);
     } finally {
       if (mounted) setState(() => _fetching = false);
@@ -233,10 +242,10 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final trending = ref.watch(latestTrendingProvider).valueOrNull;
+    final autoFetching = ref.watch(trendingInitProvider).isLoading;
+    final isLoading = _fetching || autoFetching;
 
     final hasTrendTopics = trending != null && trending.trendTopics.isNotEmpty;
-    final hasCategoryTopics = trending != null &&
-        trending.categoryTopics.values.any((list) => list.isNotEmpty);
 
     String lastFetchLabel = 'Never fetched';
     if (trending != null) {
@@ -259,7 +268,7 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
                 const Spacer(),
                 SizedBox(
                   height: 32,
-                  child: _fetching
+                  child: isLoading
                       ? const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 12),
                           child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -281,14 +290,33 @@ class _TrendingCardState extends ConsumerState<_TrendingCard> {
             const SizedBox(height: 12),
             _ActivityRow(
               label: 'Trend Topics',
-              status: _fetching ? _ActivityStatus.loading : (hasTrendTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
+              status: isLoading ? _ActivityStatus.loading : (hasTrendTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             _ActivityRow(
-              label: 'Category Topics',
-              status: _fetching ? _ActivityStatus.loading : (hasCategoryTopics ? _ActivityStatus.ok : _ActivityStatus.empty),
+              label: 'Gemini Filter',
+              status: isLoading ? _ActivityStatus.loading : (trending?.geminiFilterSuccess == true ? _ActivityStatus.ok : _ActivityStatus.empty),
             ),
-            if (!_fetching && trending?.fetchError != null) ...[
+            if (!isLoading && trending != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Text('raw: ${trending.rawTrendingTopics.length}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(width: 12),
+                  Text('main: ${trending.trendTopics.length}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  Text('filtered: ${trending.rawTrendingTopics.length - trending.trendTopics.length}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TrendingDetailScreen()),
+                    ),
+                    child: Text('know more', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary, decoration: TextDecoration.underline)),
+                  ),
+                ],
+              ),
+            ],
+            if (!isLoading && trending?.fetchError != null) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

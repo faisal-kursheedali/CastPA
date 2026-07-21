@@ -16,14 +16,18 @@ class PostRepositoryImpl implements PostRepository {
       dump: row.dump,
       linkedinContent: row.linkedinContent,
       twitterContent: row.twitterContent,
+      linkedinFirstComment: row.linkedinFirstComment,
+      twitterFirstComment: row.twitterFirstComment,
+      linkInFirstComment: row.linkInFirstComment,
       embedding: row.embedding,
+      postBaseTagsEmbedding: row.postBaseTagsEmbedding,
       isEmbedded: row.isEmbedded,
       isRemoved: row.isRemoved,
       categoryId: row.categoryId,
       links: parseStringList(row.linksJson),
       postBaseTags: parseStringList(row.postBaseTagsJson),
-      categoryBasePublishTags: parseStringList(row.categoryBasePublishTagsJson),
       trendsBasePublishTags: parseStringList(row.trendsBasePublishTagsJson),
+      userAddedTrendTags: parseStringList(row.userAddedTrendTagsJson),
       mediaIds: parseStringList(row.mediaIdsJson),
       selectedPlatforms: parseStringList(row.selectedPlatformsJson)
           .map((k) => Platform.fromKey(k))
@@ -45,14 +49,19 @@ class PostRepositoryImpl implements PostRepository {
       dump: Value(post.dump),
       linkedinContent: Value(post.linkedinContent),
       twitterContent: Value(post.twitterContent),
+      linkedinFirstComment: Value(post.linkedinFirstComment),
+      twitterFirstComment: Value(post.twitterFirstComment),
+      linkInFirstComment: Value(post.linkInFirstComment),
       embedding: Value(post.embedding),
+      postBaseTagsEmbedding: Value(post.postBaseTagsEmbedding),
       isEmbedded: Value(post.isEmbedded),
       isRemoved: Value(post.isRemoved),
       categoryId: Value(post.categoryId),
       linksJson: Value(encodeStringList(post.links)),
       postBaseTagsJson: Value(encodeStringList(post.postBaseTags)),
-      categoryBasePublishTagsJson: Value(encodeStringList(post.categoryBasePublishTags)),
+      categoryBasePublishTagsJson: const Value('[]'),
       trendsBasePublishTagsJson: Value(encodeStringList(post.trendsBasePublishTags)),
+      userAddedTrendTagsJson: Value(encodeStringList(post.userAddedTrendTags)),
       mediaIdsJson: Value(encodeStringList(post.mediaIds)),
       selectedPlatformsJson: Value(encodeStringList(post.selectedPlatforms.map((p) => p.key).toList())),
       publishedPlatformsJson: Value(encodeStringList(post.publishedPlatforms.map((p) => p.key).toList())),
@@ -115,7 +124,8 @@ class PostRepositoryImpl implements PostRepository {
     final weekEnd = weekStart.add(const Duration(days: 7));
     final rows = await (_db.select(_db.posts)
           ..where((t) =>
-              t.status.equals(PostStatus.published.key) &
+              (t.status.equals(PostStatus.published.key) |
+               t.status.equals(PostStatus.partialPublished.key)) &
               t.isRemoved.equals(false) &
               t.updatedAt.isBiggerOrEqualValue(weekStart) &
               t.updatedAt.isSmallerThanValue(weekEnd)))

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:castpa/application/providers/database_provider.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/domain/entities/category.dart';
 import 'package:castpa/domain/entities/enums.dart';
@@ -9,6 +10,7 @@ class CategoryNotifier extends AsyncNotifier<List<Category>> {
 
   @override
   Future<List<Category>> build() async {
+    ref.watch(dbEpochProvider); // rebuild when external db change detected
     return ref.watch(categoryRepositoryProvider).getAllCategories();
   }
 

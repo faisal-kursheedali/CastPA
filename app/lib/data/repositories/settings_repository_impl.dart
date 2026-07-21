@@ -28,6 +28,16 @@ class SettingsRepositoryImpl implements SettingsRepository {
       genModel: row.genModel,
       embedModel: row.embedModel,
       themeMode: row.themeMode,
+      copyToLinkedin: row.copyToLinkedin,
+      copyToX: row.copyToX,
+      trendFetchCount: row.trendFetchCount,
+      trendTagsPerPost: row.trendTagsPerPost,
+      postTagMode: row.postTagMode,
+      postTagMin: row.postTagMin,
+      postTagMax: row.postTagMax,
+      postTagExact: row.postTagExact,
+      dumpTrendingTags: row.dumpTrendingTags,
+      tagFormat: row.tagFormat,
     );
   }
 
@@ -48,6 +58,16 @@ class SettingsRepositoryImpl implements SettingsRepository {
       genModel: Value(settings.genModel),
       embedModel: Value(settings.embedModel),
       themeMode: Value(settings.themeMode),
+      copyToLinkedin: Value(settings.copyToLinkedin),
+      copyToX: Value(settings.copyToX),
+      trendFetchCount: Value(settings.trendFetchCount),
+      trendTagsPerPost: Value(settings.trendTagsPerPost),
+      postTagMode: Value(settings.postTagMode),
+      postTagMin: Value(settings.postTagMin),
+      postTagMax: Value(settings.postTagMax),
+      postTagExact: Value(settings.postTagExact),
+      dumpTrendingTags: Value(settings.dumpTrendingTags),
+      tagFormat: Value(settings.tagFormat),
     ));
   }
 }

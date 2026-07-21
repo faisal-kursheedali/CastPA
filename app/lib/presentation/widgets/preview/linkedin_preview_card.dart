@@ -1,17 +1,21 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:castpa/data/services/media_file_service.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:castpa/presentation/widgets/common/media_item_widget.dart';
+import 'package:castpa/presentation/widgets/preview/linkable_text.dart';
 
 class LinkedInPreviewCard extends StatelessWidget {
   final String content;
   final List<String> tags;
   final List<String> mediaPaths;
+  final String? firstComment;
 
   const LinkedInPreviewCard({
     super.key,
     required this.content,
     required this.tags,
     this.mediaPaths = const [],
+    this.firstComment,
   });
 
   @override
@@ -56,9 +60,10 @@ class LinkedInPreviewCard extends StatelessWidget {
           // Content
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Text(
-              content,
+            child: LinkableText(
+              text: content,
               style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.4),
+              linkStyle: const TextStyle(color: Color(0xFF0A66C2), fontSize: 14, height: 1.4),
             ),
           ),
           // Tags
@@ -71,6 +76,14 @@ class LinkedInPreviewCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 12),
+          // First comment
+          if (firstComment != null && firstComment!.isNotEmpty)
+            _FirstCommentBlock(
+              firstComment: firstComment!,
+              profileUrl: 'https://www.linkedin.com/in/me/recent-activity/all/',
+              accentColor: const Color(0xFF0A66C2),
+            ),
+          const SizedBox(height: 8),
           // Reactions bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -135,23 +148,100 @@ class _MediaPreviewState extends State<_MediaPreview> {
     );
   }
 
-  Widget _mediaWidget(String path) {
-    final isImg = MediaFileService.isImage(path);
-    if (isImg) {
-      return Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        errorBuilder: (ctx, e, s) => _videoPlaceholder(),
-      );
-    }
-    return _videoPlaceholder();
+  Widget _mediaWidget(String path) => MediaItemWidget(path: path);
+}
+
+class _FirstCommentBlock extends StatefulWidget {
+  final String firstComment;
+  final String profileUrl;
+  final Color accentColor;
+
+  const _FirstCommentBlock({
+    required this.firstComment,
+    required this.profileUrl,
+    required this.accentColor,
+  });
+
+  @override
+  State<_FirstCommentBlock> createState() => _FirstCommentBlockState();
+}
+
+class _FirstCommentBlockState extends State<_FirstCommentBlock> {
+  bool _copied = false;
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.firstComment));
+    setState(() => _copied = true);
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) setState(() => _copied = false);
   }
 
-  Widget _videoPlaceholder() {
+  Future<void> _copyAndOpen() async {
+    await Clipboard.setData(ClipboardData(text: widget.firstComment));
+    final uri = Uri.parse(widget.profileUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: Colors.black,
-      child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white, size: 48)),
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 10,
+                backgroundColor: widget.accentColor,
+                child: const Text('C', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 6),
+              const Text('1st comment', style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic)),
+              const Spacer(),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _copied
+                    ? const Icon(Icons.check, key: ValueKey('check'), size: 15, color: Colors.green)
+                    : IconButton(
+                        key: const ValueKey('copy'),
+                        icon: const Icon(Icons.copy, size: 15),
+                        tooltip: 'Copy 1st comment',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: _copy,
+                      ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _copyAndOpen,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.open_in_new, size: 13, color: widget.accentColor),
+                      const SizedBox(width: 3),
+                      Text('Copy & open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: widget.accentColor)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(widget.firstComment, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        ],
+      ),
     );
   }
 }

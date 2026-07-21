@@ -1,16 +1,19 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:castpa/application/notifiers/post_edit_notifier.dart';
 import 'package:castpa/data/services/media_file_service.dart';
 import 'package:castpa/application/notifiers/category_notifier.dart';
 import 'package:castpa/application/notifiers/recording_notifier.dart';
 import 'package:castpa/application/providers/repository_providers.dart';
 import 'package:castpa/application/providers/service_providers.dart';
+import 'package:castpa/application/providers/settings_notifier.dart';
 import 'package:castpa/domain/entities/category.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/media_item.dart';
+import 'package:castpa/presentation/widgets/common/media_item_widget.dart';
 import 'package:castpa/presentation/widgets/post/tag_chips_editor.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 class PostEditTab extends ConsumerStatefulWidget {
   final bool readOnly;
@@ -31,8 +34,47 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
   late TextEditingController _linkedinCtrl;
   late TextEditingController _twitterCtrl;
   late TextEditingController _linkCtrl;
+  late TextEditingController _linkedinFirstCommentCtrl;
+  late TextEditingController _twitterFirstCommentCtrl;
   bool _initialized = false;
   int _xTapCount = 0;
+
+  // Polish config
+  bool _polishConfigOpen = false;
+  String _hookType = 'auto';
+  String _structure = 'auto';
+  String _endWithQuestion = 'auto';
+
+  static const _hookSuggestions = {
+    'fear': 'pas',
+    'aspiration': 'bab',
+    'contrarian': 'contrarian',
+  };
+  static const _structureSuggestions = {
+    'pas': 'fear',
+    'bab': 'aspiration',
+    'contrarian': 'contrarian',
+  };
+
+  void _onHookChanged(String? value) {
+    if (value == null) return;
+    setState(() {
+      _hookType = value;
+      if (value != 'auto' && _hookSuggestions.containsKey(value)) {
+        _structure = _hookSuggestions[value]!;
+      }
+    });
+  }
+
+  void _onStructureChanged(String? value) {
+    if (value == null) return;
+    setState(() {
+      _structure = value;
+      if (value != 'auto' && _structureSuggestions.containsKey(value)) {
+        _hookType = _structureSuggestions[value]!;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -41,6 +83,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
     _linkedinCtrl = TextEditingController();
     _twitterCtrl = TextEditingController();
     _linkCtrl = TextEditingController();
+    _linkedinFirstCommentCtrl = TextEditingController();
+    _twitterFirstCommentCtrl = TextEditingController();
   }
 
   @override
@@ -49,6 +93,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
     _linkedinCtrl.dispose();
     _twitterCtrl.dispose();
     _linkCtrl.dispose();
+    _linkedinFirstCommentCtrl.dispose();
+    _twitterFirstCommentCtrl.dispose();
     super.dispose();
   }
 
@@ -57,6 +103,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
       _dumpCtrl.text = editState.post.dump;
       _linkedinCtrl.text = editState.post.linkedinContent ?? '';
       _twitterCtrl.text = editState.post.twitterContent ?? '';
+      _linkedinFirstCommentCtrl.text = editState.post.linkedinFirstComment ?? '';
+      _twitterFirstCommentCtrl.text = editState.post.twitterFirstComment ?? '';
       _initialized = true;
     }
   }
@@ -64,6 +112,8 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
   void _syncAfterPolish(PostEditState next) {
     _linkedinCtrl.text = next.post.linkedinContent ?? '';
     _twitterCtrl.text = next.post.twitterContent ?? '';
+    _linkedinFirstCommentCtrl.text = next.post.linkedinFirstComment ?? '';
+    _twitterFirstCommentCtrl.text = next.post.twitterFirstComment ?? '';
   }
 
   void _addLink() {
@@ -112,7 +162,17 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
               const SizedBox(height: 8),
               _RecordingBar(dumpCtrl: _dumpCtrl),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // Link in first comment toggle
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Link in 1st comment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              subtitle: const Text('Move any URL from content to first comment', style: TextStyle(fontSize: 11)),
+              value: post.linkInFirstComment,
+              onChanged: widget.readOnly ? null : (v) => ref.read(postEditProvider.notifier).updateLinkInFirstComment(v),
+            ),
+            const SizedBox(height: 4),
             // Links
             _sectionLabel('Links'),
             ...post.links.asMap().entries.map((entry) => ListTile(
@@ -240,6 +300,20 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
                 ),
                 onChanged: (v) => ref.read(postEditProvider.notifier).updateLinkedinContent(v),
               ),
+              if (post.linkInFirstComment) ...[
+                const SizedBox(height: 8),
+                _sectionLabel('LinkedIn 1st Comment'),
+                TextField(
+                  controller: _linkedinFirstCommentCtrl,
+                  maxLines: 2,
+                  readOnly: widget.readOnly,
+                  decoration: const InputDecoration(
+                    hintText: 'First comment (link goes here)...',
+                    alignLabelWithHint: true,
+                  ),
+                  onChanged: (v) => ref.read(postEditProvider.notifier).updateLinkedinFirstComment(v),
+                ),
+              ],
               const SizedBox(height: 16),
             ],
             _sectionLabel('X (Twitter) Content'),
@@ -254,24 +328,98 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
               ),
               onChanged: (v) => ref.read(postEditProvider.notifier).updateTwitterContent(v),
             ),
+            if (post.linkInFirstComment) ...[
+              const SizedBox(height: 8),
+              _sectionLabel('X 1st Comment'),
+              TextField(
+                controller: _twitterFirstCommentCtrl,
+                maxLines: 2,
+                readOnly: widget.readOnly,
+                decoration: const InputDecoration(
+                  hintText: 'First comment (link goes here)...',
+                  alignLabelWithHint: true,
+                ),
+                onChanged: (v) => ref.read(postEditProvider.notifier).updateTwitterFirstComment(v),
+              ),
+            ],
             const SizedBox(height: 16),
           ],
-          // Tags
-          TagChipsEditor(
-            label: 'Post Base Tags',
-            tags: post.postBaseTags,
+          // Tag checkboxes + tags
+          _TagSelectionSection(
             readOnly: widget.readOnly,
-            onChanged: (tags) => ref.read(postEditProvider.notifier).updatePostBaseTags(tags),
-          ),
-          _TrendingTagsSection(
-            selectedCategoryId: post.categoryId,
-            categories: categories,
-            currentCategoryTags: post.categoryBasePublishTags,
-            currentTrendTags: post.trendsBasePublishTags,
           ),
           const SizedBox(height: 24),
-          // Polish button
+          // Polish config + button
           if (!widget.readOnly && !widget.tagOnlyEdit) ...[
+            // Collapsible config header
+            InkWell(
+              onTap: () => setState(() => _polishConfigOpen = !_polishConfigOpen),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(_polishConfigOpen ? Icons.expand_less : Icons.expand_more,
+                        size: 18, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text('Polish Configuration',
+                        style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary)),
+                  ],
+                ),
+              ),
+            ),
+            if (_polishConfigOpen) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(80),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                ),
+                child: Column(
+                  children: [
+                    _PolishDropdown(
+                      label: 'Hook',
+                      value: _hookType,
+                      items: const {
+                        'auto': 'Auto (AI picks best)',
+                        'contrarian': 'Contrarian',
+                        'curiosity': 'Curiosity',
+                        'fear': 'Fear',
+                        'stat': 'Stat',
+                        'aspiration': 'Aspiration',
+                      },
+                      onChanged: _onHookChanged,
+                    ),
+                    const SizedBox(height: 10),
+                    _PolishDropdown(
+                      label: 'Structure',
+                      value: _structure,
+                      items: const {
+                        'auto': 'Auto (AI picks best)',
+                        'pas': 'PAS — Problem → Agitate → Solution',
+                        'bab': 'BAB — Before → After → Bridge',
+                        'contrarian': 'Contrarian — Claim → Points → Takeaway',
+                      },
+                      onChanged: _onStructureChanged,
+                    ),
+                    const SizedBox(height: 10),
+                    _PolishDropdown(
+                      label: 'End with question',
+                      value: _endWithQuestion,
+                      items: const {
+                        'auto': 'Auto (if it fits naturally)',
+                        'yes': 'Yes — always',
+                        'no': 'No — never',
+                      },
+                      onChanged: (v) => setState(() => _endWithQuestion = v ?? 'auto'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (editState.polishError != null) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -292,7 +440,11 @@ class _PostEditTabState extends ConsumerState<PostEditTab> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: isPolishing ? null : () => ref.read(postEditProvider.notifier).polish(),
+                onPressed: isPolishing ? null : () => ref.read(postEditProvider.notifier).polish(
+                  hookType: _hookType,
+                  structure: _structure,
+                  endWithQuestion: _endWithQuestion,
+                ),
                 icon: isPolishing
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.auto_awesome),
@@ -411,13 +563,35 @@ class _MediaSection extends ConsumerWidget {
         );
         return;
       }
-      final mediaItem = await fileService.pickAndSaveFile();
-      if (mediaItem == null) return;
-      final mediaRepo = ref.read(mediaRepositoryProvider);
-      await mediaRepo.addMedia(mediaItem);
-      final currentIds = ref.read(postEditProvider).post.mediaIds;
-      final ids = List<String>.from(currentIds)..add(mediaItem.id);
-      ref.read(postEditProvider.notifier).updateMediaIds(ids);
+      final result = await fileService.pickAndSaveFile();
+      if (!context.mounted) return;
+      switch (result) {
+        case PickFileCancelled():
+          return;
+        case PickFilePermissionDenied(:final isPermanentlyDenied):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isPermanentlyDenied
+                    ? 'Storage permission permanently denied. Enable it in Settings.'
+                    : 'Storage permission denied.',
+              ),
+              action: isPermanentlyDenied
+                  ? SnackBarAction(label: 'Settings', onPressed: openAppSettings)
+                  : null,
+            ),
+          );
+          return;
+        case PickFileSuccess(:final items):
+          final mediaRepo = ref.read(mediaRepositoryProvider);
+          final currentIds = ref.read(postEditProvider).post.mediaIds;
+          final ids = List<String>.from(currentIds);
+          for (final item in items) {
+            await mediaRepo.addMedia(item);
+            ids.add(item.id);
+          }
+          ref.read(postEditProvider.notifier).updateMediaIds(ids);
+      }
     } catch (e) {
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -425,7 +599,8 @@ class _MediaSection extends ConsumerWidget {
 
   Future<void> _pickFromLibrary(BuildContext context, WidgetRef ref) async {
     final fileService = ref.read(mediaFileServiceProvider);
-    final allMedia = await ref.read(mediaRepositoryProvider).getAllMedia();
+    final allMedia = await ref.read(mediaRepositoryProvider).getAllMedia()
+      ..sort((a, b) => b.addedDate.compareTo(a.addedDate));
     if (!context.mounted) return;
 
     final currentIds = ref.read(postEditProvider).post.mediaIds;
@@ -454,21 +629,9 @@ class _MediaThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isImg = MediaFileService.isImage(item.storedFilename);
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: isImg
-              ? Image.file(
-                  File(filePath),
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, e, s) => _placeholder(isImg),
-                )
-              : _placeholder(isImg),
-        ),
+        MediaThumbWidget(path: filePath, size: 72),
         if (onRemove != null)
           Positioned(
             top: 2,
@@ -483,18 +646,6 @@ class _MediaThumb extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _placeholder(bool isImg) {
-    return Container(
-      width: 72,
-      height: 72,
-      color: Colors.grey.shade200,
-      child: Icon(
-        isImg ? Icons.image_outlined : Icons.videocam_outlined,
-        color: Colors.grey,
-      ),
     );
   }
 }
@@ -515,12 +666,12 @@ class _MediaLibraryDialog extends StatefulWidget {
 }
 
 class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
-  late Set<String> _selectedIds;
+  late List<String> _selectedIds;
 
   @override
   void initState() {
     super.initState();
-    _selectedIds = Set.from(widget.currentIds);
+    _selectedIds = List.from(widget.currentIds);
   }
 
   @override
@@ -542,8 +693,8 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
                 itemBuilder: (_, i) {
                   final item = widget.allMedia[i];
                   final selected = _selectedIds.contains(item.id);
+                  final selIndex = _selectedIds.indexOf(item.id);
                   final filePath = widget.fileService.getMediaFilePath(item.storedFilename);
-                  final isImg = MediaFileService.isImage(item.storedFilename);
                   return GestureDetector(
                     onTap: () => setState(() {
                       if (selected) {
@@ -555,30 +706,31 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: isImg
-                              ? Image.file(File(filePath), fit: BoxFit.cover,
-                                  errorBuilder: (ctx, e, s) => _libraryPlaceholder(isImg))
-                              : _libraryPlaceholder(isImg),
-                        ),
-                        if (selected)
+                        MediaThumbWidget(path: filePath),
+                        if (selected) ...[
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.blue.withAlpha(100),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: Colors.blue, width: 2),
                             ),
-                            child: const Icon(Icons.check, color: Colors.white),
                           ),
-                        if (!isImg)
-                          const Align(
-                            alignment: Alignment.bottomRight,
-                            child: Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(Icons.videocam, size: 16, color: Colors.white70),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(4),
+                              child: Text(
+                                '${selIndex + 1}',
+                                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   );
@@ -588,83 +740,197 @@ class _MediaLibraryDialogState extends State<_MediaLibraryDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
-          onPressed: () => Navigator.pop(
-            context,
-            widget.allMedia.where((m) => _selectedIds.contains(m.id)).toList(),
-          ),
+          onPressed: () {
+            final byId = {for (final m in widget.allMedia) m.id: m};
+            Navigator.pop(context, _selectedIds.map((id) => byId[id]).whereType<MediaItem>().toList());
+          },
           child: const Text('Select'),
         ),
       ],
     );
   }
 
-  Widget _libraryPlaceholder(bool isImg) {
-    return Container(
-      color: Colors.grey.shade300,
-      child: Icon(isImg ? Icons.image_outlined : Icons.videocam_outlined, color: Colors.grey),
-    );
-  }
 }
 
-class _TrendingTagsSection extends ConsumerStatefulWidget {
-  final String? selectedCategoryId;
-  final List<Category> categories;
-  final List<String> currentCategoryTags;
-  final List<String> currentTrendTags;
+class _TagSelectionSection extends ConsumerStatefulWidget {
+  final bool readOnly;
 
-  const _TrendingTagsSection({
-    required this.selectedCategoryId,
-    required this.categories,
-    required this.currentCategoryTags,
-    required this.currentTrendTags,
+  const _TagSelectionSection({
+    required this.readOnly,
   });
 
   @override
-  ConsumerState<_TrendingTagsSection> createState() => _TrendingTagsSectionState();
+  ConsumerState<_TagSelectionSection> createState() => _TagSelectionSectionState();
 }
 
-class _TrendingTagsSectionState extends ConsumerState<_TrendingTagsSection> {
+class _TagSelectionSectionState extends ConsumerState<_TagSelectionSection> {
+  bool _didInitialRagFilter = false;
+
   @override
   Widget build(BuildContext context) {
     final trendingAsync = ref.watch(latestTrendingProvider);
     final trending = trendingAsync.valueOrNull;
+    final editState = ref.watch(postEditProvider);
+    final post = editState.post;
+    final selectedTags = editState.selectedTrendTags;
 
-    final selectedCategory = widget.selectedCategoryId == null
-        ? null
-        : widget.categories.where((c) => c.id == widget.selectedCategoryId).firstOrNull;
+    final settings = ref.watch(settingsNotifierProvider).valueOrNull;
+    final tagFormat = settings?.tagFormat ?? 'camelCase';
+    final trendTags = trending?.trendTopics.map((t) => toTag(t, format: tagFormat)).toList() ?? [];
 
-    final categoryTags = selectedCategory == null
-        ? <String>[]
-        : (trending?.categoryTopics[selectedCategory.name.toUpperCase()] ?? []);
-
-    final trendTags = trending?.trendTopics.map((t) => t.replaceAll(' ', '_')).toList() ?? [];
-
-    // Sync resolved tags back into the post so publish_notifier can use them.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final notifier = ref.read(postEditProvider.notifier);
-      if (categoryTags.join() != widget.currentCategoryTags.join()) {
-        notifier.updateCategoryBasePublishTags(categoryTags);
-      }
-      if (trendTags.join() != widget.currentTrendTags.join()) {
-        notifier.updateTrendsBasePublishTags(trendTags);
-      }
-    });
+    // On first build, apply trending tag mode
+    if (!_didInitialRagFilter && trending != null &&
+        (editState.dumpTrendingTags || post.postBaseTags.isNotEmpty)) {
+      _didInitialRagFilter = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final notifier = ref.read(postEditProvider.notifier);
+        if (editState.dumpTrendingTags) {
+          notifier.applyTrendingTagMode();
+        } else {
+          final hasCachedEmbeddings = post.postBaseTagsEmbedding != null
+              && post.postBaseTagsEmbedding!.isNotEmpty
+              && post.postBaseTagsEmbedding != '[]';
+          if (hasCachedEmbeddings) {
+            final topK = settings?.trendTagsPerPost ?? 5;
+            notifier.filterTrendingTagsByRag(trending, topK: topK);
+          } else {
+            notifier.updatePostBaseTags(post.postBaseTags);
+          }
+        }
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (categoryTags.isNotEmpty)
-          TagChipsEditor(
-            label: 'Category Tags',
-            tags: categoryTags,
-            readOnly: true,
-          ),
         TagChipsEditor(
-          label: 'Trends Tags',
-          tags: trendTags,
-          readOnly: true,
+          label: 'Post Base Tags',
+          tags: post.postBaseTags,
+          readOnly: widget.readOnly,
+          tagFormat: tagFormat,
+          onChanged: (tags) => ref.read(postEditProvider.notifier).updatePostBaseTags(tags),
         ),
+        const SizedBox(height: 8),
+
+        Text('Trending Tags', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 6),
+        if (trendTags.isEmpty)
+          const Text('No trending tags available', style: TextStyle(fontSize: 12, color: Colors.grey))
+        else if (editState.dumpTrendingTags) ...[
+          if (trendTags.any((t) => selectedTags.contains(t))) ...[
+            Text('Selected', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => selectedTags.contains(t)).map((tag) {
+                return Chip(
+                  label: Text('#$tag', style: const TextStyle(fontSize: 12)),
+                  onDeleted: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).removeRagSuggestedTag(tag),
+                  deleteIconColor: Colors.grey,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (trendTags.any((t) => !selectedTags.contains(t))) ...[
+            Text('Available', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => !selectedTags.contains(t)).map((tag) {
+                return InputChip(
+                  label: Text('#$tag', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  selected: false,
+                  showCheckmark: false,
+                  onPressed: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).addUserTrendTag(tag),
+                  backgroundColor: Colors.grey.withValues(alpha: 0.08),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Add',
+                );
+              }).toList(),
+            ),
+          ],
+        ] else ...[
+          // RAG Suggested tags
+          if (trendTags.any((t) => editState.ragSuggestedTags.contains(t))) ...[
+            Text('RAG Suggested', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => editState.ragSuggestedTags.contains(t)).map((tag) {
+                return Chip(
+                  label: Text('#$tag', style: const TextStyle(fontSize: 12)),
+                  onDeleted: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).removeRagSuggestedTag(tag),
+                  deleteIconColor: Colors.grey,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // User added tags
+          if (post.userAddedTrendTags.any((t) => trendTags.contains(t))) ...[
+            Text('Your Tags', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: post.userAddedTrendTags.where((t) => trendTags.contains(t)).map((tag) {
+                return Chip(
+                  label: Text('#$tag', style: const TextStyle(fontSize: 12)),
+                  onDeleted: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).removeUserTrendTag(tag),
+                  deleteIconColor: Colors.grey,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // Available (unselected) tags
+          if (trendTags.any((t) => !selectedTags.contains(t))) ...[
+            Text('Available', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: trendTags.where((t) => !selectedTags.contains(t)).map((tag) {
+                return InputChip(
+                  label: Text('#$tag', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  selected: false,
+                  showCheckmark: false,
+                  onPressed: widget.readOnly ? null : () => ref.read(postEditProvider.notifier).addUserTrendTag(tag),
+                  backgroundColor: Colors.grey.withValues(alpha: 0.08),
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Add',
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+        if (post.postBaseTags.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              'Add or polish post tags to get smart tag suggestions',
+              style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          ),
+        const Divider(height: 16),
       ],
     );
   }
@@ -766,5 +1032,45 @@ class _RecordingBar extends ConsumerWidget {
     }
 
     return const SizedBox.shrink();
+  }
+}
+
+class _PolishDropdown extends StatelessWidget {
+  final String label;
+  final String value;
+  final Map<String, String> items;
+  final ValueChanged<String?> onChanged;
+
+  const _PolishDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        ),
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: value,
+            isDense: true,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              border: OutlineInputBorder(),
+            ),
+            items: items.entries
+                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))))
+                .toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
   }
 }

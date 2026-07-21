@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:castpa/application/notifiers/post_edit_notifier.dart';
 import 'package:castpa/presentation/screens/post/post_edit_tab.dart';
 import 'package:castpa/presentation/screens/post/post_preview_tab.dart';
+import 'package:castpa/presentation/widgets/common/rag_status_indicator.dart';
 import 'package:castpa/presentation/widgets/common/save_status_indicator.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
@@ -35,14 +36,33 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen>
 
   @override
   Widget build(BuildContext context) {
-    final saveState = ref.watch(postEditProvider).saveState;
+    final editState = ref.watch(postEditProvider);
+    final saveState = editState.saveState;
 
     return PopScope(
       onPopInvokedWithResult: (_, __) => _onWillPop(),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('New Post'),
-          actions: [SaveStatusIndicator(saveState: saveState)],
+          actions: [
+            SaveStatusIndicator(saveState: saveState),
+            if (!editState.dumpTrendingTags) RagStatusIndicator(ragStatus: editState.ragStatus),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: ToggleButtons(
+                isSelected: [editState.dumpTrendingTags],
+                onPressed: (_) => ref.read(postEditProvider.notifier).toggleDumpTrendingTags(),
+                borderRadius: BorderRadius.circular(8),
+                constraints: const BoxConstraints(minHeight: 32, minWidth: 0),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('Dump Tags', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ],
           bottom: TabBar(
             controller: _tabController,
             tabs: const [

@@ -6,6 +6,7 @@ import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/presentation/screens/post/post_edit_tab.dart';
 import 'package:castpa/presentation/screens/post/post_preview_tab.dart';
+import 'package:castpa/presentation/widgets/common/rag_status_indicator.dart';
 import 'package:castpa/presentation/widgets/common/save_status_indicator.dart';
 
 final _postDetailProvider = FutureProvider.autoDispose.family<Post?, String>((
@@ -74,14 +75,19 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen>
           _postLoaded = true;
         }
 
-        final status = post.status;
+        final editState = ref.watch(postEditProvider);
+        // Read status from postEditProvider so AppBar updates instantly
+        // when copy-to-platform patches the state (e.g. pending → partialPublished).
+        final status = editState.post.status == PostStatus.draft && post.status != PostStatus.draft
+            ? post.status
+            : editState.post.status;
         final isPublished = status == PostStatus.published;
         final isPartialPublished = status == PostStatus.partialPublished;
         final isLocked = isPublished || (isPartialPublished && !_fullUnlocked);
         final isTagOnly =
             isPartialPublished && _tagOnlyUnlocked && !_fullUnlocked;
 
-        final saveState = ref.watch(postEditProvider).saveState;
+        final saveState = editState.saveState;
 
         ref.listen(postEditProvider, (_, next) {
           if (next.saveState == SaveState.deleted && context.mounted) {
@@ -89,10 +95,29 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen>
           }
         });
 
+
         return Scaffold(
           appBar: AppBar(
             title: Text(status.displayName),
-            actions: [if (!isLocked) SaveStatusIndicator(saveState: saveState)],
+            actions: [
+              if (!isLocked) SaveStatusIndicator(saveState: saveState),
+              if (!isLocked && !editState.dumpTrendingTags) RagStatusIndicator(ragStatus: editState.ragStatus),
+              if (!isLocked) Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: ToggleButtons(
+                  isSelected: [editState.dumpTrendingTags],
+                  onPressed: (_) => ref.read(postEditProvider.notifier).toggleDumpTrendingTags(),
+                  borderRadius: BorderRadius.circular(8),
+                  constraints: const BoxConstraints(minHeight: 32, minWidth: 0),
+                  children: const [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('Dump Tags', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             bottom: TabBar(
               controller: _tabController,
               tabs: const [

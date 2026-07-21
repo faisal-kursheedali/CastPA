@@ -14,13 +14,19 @@ class Posts extends Table {
   TextColumn get dump => text().withDefault(const Constant(''))();
   TextColumn get linkedinContent => text().nullable()();
   TextColumn get twitterContent => text().nullable()();
+  TextColumn get linkedinFirstComment => text().nullable()();
+  TextColumn get twitterFirstComment => text().nullable()();
+  BoolColumn get linkInFirstComment => boolean().withDefault(const Constant(true))();
   TextColumn get embedding => text().nullable()();
+  TextColumn get postBaseTagsEmbedding => text().nullable()();
   TextColumn get categoryId => text().nullable()();
   TextColumn get linksJson => text().withDefault(const Constant('[]'))();
   TextColumn get postBaseTagsJson => text().withDefault(const Constant('[]'))();
   TextColumn get categoryBasePublishTagsJson =>
       text().withDefault(const Constant('[]'))();
   TextColumn get trendsBasePublishTagsJson =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get userAddedTrendTagsJson =>
       text().withDefault(const Constant('[]'))();
   TextColumn get mediaIdsJson => text().withDefault(const Constant('[]'))();
   TextColumn get selectedPlatformsJson =>
@@ -62,8 +68,18 @@ class Settings extends Table {
   TextColumn get xClientId => text().nullable()();
   TextColumn get xClientSecret => text().nullable()();
   TextColumn get themeMode => text().withDefault(const Constant('system'))();
+  BoolColumn get copyToLinkedin => boolean().withDefault(const Constant(false))();
+  BoolColumn get copyToX => boolean().withDefault(const Constant(false))();
+  IntColumn get trendFetchCount => integer().withDefault(const Constant(7))();
+  IntColumn get trendTagsPerPost => integer().withDefault(const Constant(5))();
+  TextColumn get postTagMode => text().withDefault(const Constant('range'))();
+  IntColumn get postTagMin => integer().withDefault(const Constant(3))();
+  IntColumn get postTagMax => integer().withDefault(const Constant(10))();
+  IntColumn get postTagExact => integer().withDefault(const Constant(5))();
   // Tracks the logical schema version that has been applied to this DB file.
   // Synced across devices so migrations only run once regardless of which device opens it first.
+  BoolColumn get dumpTrendingTags => boolean().withDefault(const Constant(true))();
+  TextColumn get tagFormat => text().withDefault(const Constant('camelCase'))();
   IntColumn get dbSchemaVersion => integer().withDefault(const Constant(0))();
 
   @override
@@ -114,6 +130,8 @@ class Trendings extends Table {
   TextColumn get platform =>
       text().withDefault(const Constant('gemini'))();
   TextColumn get fetchError => text().nullable()();
+  BoolColumn get geminiFilterSuccess => boolean().withDefault(const Constant(false))();
+  TextColumn get rawTrendingJson => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -128,7 +146,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(String dbPath) : super(_openConnection(dbPath));
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -179,6 +197,75 @@ class AppDatabase extends _$AppDatabase {
       if (from < 10) {
         await _safeAlter(
           'ALTER TABLE trendings ADD COLUMN fetch_error TEXT',
+        );
+      }
+      if (from < 11) {
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN copy_to_linkedin INTEGER NOT NULL DEFAULT 0',
+        );
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN copy_to_x INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 12) {
+        await _safeAlter(
+          'ALTER TABLE trendings ADD COLUMN raw_trending_json TEXT',
+        );
+      }
+      if (from < 13) {
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN trend_fetch_count INTEGER NOT NULL DEFAULT 7',
+        );
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN trend_tags_per_post INTEGER NOT NULL DEFAULT 5',
+        );
+      }
+      if (from < 14) {
+        await _safeAlter(
+          "ALTER TABLE settings ADD COLUMN post_tag_mode TEXT NOT NULL DEFAULT 'range'",
+        );
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN post_tag_min INTEGER NOT NULL DEFAULT 3',
+        );
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN post_tag_max INTEGER NOT NULL DEFAULT 10',
+        );
+      }
+      if (from < 15) {
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN post_tag_exact INTEGER NOT NULL DEFAULT 5',
+        );
+      }
+      if (from < 16) {
+        await _safeAlter(
+          'ALTER TABLE posts ADD COLUMN post_base_tags_embedding TEXT',
+        );
+      }
+      if (from < 17) {
+        await _safeAlter(
+          "ALTER TABLE posts ADD COLUMN user_added_trend_tags_json TEXT NOT NULL DEFAULT '[]'",
+        );
+      }
+      if (from < 18) {
+        await _safeAlter(
+          'ALTER TABLE settings ADD COLUMN dump_trending_tags INTEGER NOT NULL DEFAULT 1',
+        );
+      }
+      if (from < 19) {
+        await _safeAlter(
+          "ALTER TABLE settings ADD COLUMN tag_format TEXT NOT NULL DEFAULT 'camelCase'",
+        );
+      }
+      if (from < 20) {
+        await _safeAlter(
+          'ALTER TABLE trendings ADD COLUMN gemini_filter_success INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (from < 21) {
+        await _safeAlter('ALTER TABLE posts ADD COLUMN linkedin_first_comment TEXT');
+        await _safeAlter('ALTER TABLE posts ADD COLUMN twitter_first_comment TEXT');
+        await _safeAlter(
+          'ALTER TABLE posts ADD COLUMN link_in_first_comment INTEGER NOT NULL DEFAULT 1',
         );
       }
     },

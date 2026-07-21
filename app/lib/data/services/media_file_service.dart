@@ -2,7 +2,22 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:castpa/domain/entities/media_item.dart';
+
+sealed class PickFileResult {}
+
+class PickFileSuccess extends PickFileResult {
+  final List<MediaItem> items;
+  PickFileSuccess(this.items);
+}
+
+class PickFileCancelled extends PickFileResult {}
+
+class PickFilePermissionDenied extends PickFileResult {
+  final bool isPermanentlyDenied;
+  PickFilePermissionDenied({this.isPermanentlyDenied = false});
+}
 
 class MediaFileService {
   static const _uuid = Uuid();
@@ -14,6 +29,40 @@ class MediaFileService {
 
   MediaFileService(this.mediaFolderPath);
 
+  String get shareFolderPath => p.join(p.dirname(mediaFolderPath), 'share');
+
+  Future<void> ensureShareFolder() async {
+    final dir = Directory(shareFolderPath);
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
+    }
+  }
+
+  Future<void> clearAndPrepareShareFolder() async {
+    final dir = Directory(shareFolderPath);
+    if (dir.existsSync()) {
+      await for (final entity in dir.list()) {
+        await entity.delete(recursive: true);
+      }
+    } else {
+      await dir.create(recursive: true);
+    }
+  }
+
+  Future<void> copyToShareFolder(List<String> sourcePaths) async {
+    await clearAndPrepareShareFolder();
+    var index = 1;
+    for (final srcPath in sourcePaths) {
+      final src = File(srcPath);
+      if (src.existsSync()) {
+        final ext = p.extension(srcPath); // e.g. .jpg, .mp4
+        final dest = p.join(shareFolderPath, '$index$ext');
+        await src.copy(dest);
+        index++;
+      }
+    }
+  }
+
   static bool isImage(String filename) {
     final ext = p.extension(filename).replaceFirst('.', '').toLowerCase();
     return _imageExtensions.contains(ext);
@@ -24,22 +73,36 @@ class MediaFileService {
     return _videoExtensions.contains(ext);
   }
 
-  Future<MediaItem?> pickAndSaveFile() async {
+  Future<PickFileResult> pickAndSaveFile() async {
+    if (Platform.isAndroid) {
+      final granted = await Permission.manageExternalStorage.isGranted;
+      if (!granted) {
+        return PickFilePermissionDenied(isPermanentlyDenied: true);
+      }
+    }
+
     final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
+      allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: [..._imageExtensions, ..._videoExtensions],
       withData: true,
     );
-    if (result == null || result.files.isEmpty) return null;
-    final file = result.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
-      // Fallback: direct path copy (desktop with full disk access)
-      if (file.path == null) return null;
-      return _saveFromPath(File(file.path!), file.name);
+    if (result == null || result.files.isEmpty) return PickFileCancelled();
+
+    final items = <MediaItem>[];
+    for (final file in result.files) {
+      final bytes = file.bytes;
+      final MediaItem item;
+      if (bytes == null) {
+        if (file.path == null) continue;
+        item = await _saveFromPath(File(file.path!), file.name);
+      } else {
+        item = await _saveFromBytes(bytes, file.name);
+      }
+      items.add(item);
     }
-    return _saveFromBytes(bytes, file.name);
+    if (items.isEmpty) return PickFileCancelled();
+    return PickFileSuccess(items);
   }
 
   Future<MediaItem> _saveFromBytes(List<int> bytes, String originalFilename) async {

@@ -78,6 +78,46 @@ class EmbeddingService {
     }
   }
 
+  /// Splits [text] into overlapping 320-char chunks, embeds each locally,
+  /// then returns a single averaged + re-normalised 384-dim vector.
+  Future<List<double>> embedChunked(String text) async {
+    const chunkSize = 320;
+    const stride = 240; // 75% overlap
+
+    final chunks = <String>[];
+    if (text.length <= chunkSize) {
+      chunks.add(text);
+    } else {
+      int start = 0;
+      while (start < text.length) {
+        final end = min(start + chunkSize, text.length);
+        chunks.add(text.substring(start, end));
+        start += stride;
+      }
+    }
+
+    final vectors = <List<double>>[];
+    for (final chunk in chunks) {
+      final vec = await embed(chunk);
+      if (vec.isNotEmpty) vectors.add(vec);
+    }
+
+    if (vectors.isEmpty) return [];
+    if (vectors.length == 1) return vectors.first;
+
+    // Element-wise average
+    final avg = List<double>.filled(_embDim, 0.0);
+    for (final v in vectors) {
+      for (int i = 0; i < _embDim; i++) { avg[i] += v[i]; }
+    }
+    for (int i = 0; i < _embDim; i++) { avg[i] /= vectors.length; }
+
+    // Re-normalise (averaging breaks L2 norm)
+    final norm = sqrt(avg.fold(0.0, (s, x) => s + x * x));
+    if (norm == 0) return avg;
+    return [for (final x in avg) x / norm];
+  }
+
   double cosineSimilarity(List<double> a, List<double> b) {
     if (a.isEmpty || b.isEmpty || a.length != b.length) return 0.0;
     double dot = 0, na = 0, nb = 0;

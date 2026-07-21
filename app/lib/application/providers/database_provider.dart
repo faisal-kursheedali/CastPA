@@ -11,3 +11,8 @@ final databaseProvider = StateProvider<AppDatabase>((ref) {
 final localDatabaseProvider = Provider<LocalDatabase>((ref) {
   throw UnimplementedError('localDatabaseProvider must be overridden in main()');
 });
+
+/// Incremented by [DbSyncService] whenever an external process writes to
+/// castpa.db. Any provider that reads live data should watch this so it
+/// rebuilds automatically when the file changes outside the app.
+final dbEpochProvider = StateProvider<int>((ref) => 0);

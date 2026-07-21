@@ -1,17 +1,21 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:castpa/data/services/media_file_service.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:castpa/presentation/widgets/common/media_item_widget.dart';
+import 'package:castpa/presentation/widgets/preview/linkable_text.dart';
 
 class XPreviewCard extends StatelessWidget {
   final String content;
   final List<String> tags;
   final List<String> mediaPaths;
+  final String? firstComment;
 
   const XPreviewCard({
     super.key,
     required this.content,
     required this.tags,
     this.mediaPaths = const [],
+    this.firstComment,
   });
 
   @override
@@ -51,9 +55,10 @@ class XPreviewCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       // Content
-                      Text(
-                        content,
+                      LinkableText(
+                        text: content,
                         style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                        linkStyle: const TextStyle(color: Color(0xFF1D9BF0), fontSize: 14, height: 1.4),
                       ),
                       // Tags
                       if (tags.isNotEmpty) ...[
@@ -67,6 +72,11 @@ class XPreviewCard extends StatelessWidget {
                       if (mediaPaths.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         _XMediaPreview(mediaPaths: mediaPaths),
+                      ],
+                      // First comment
+                      if (firstComment != null && firstComment!.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        _XFirstCommentBlock(firstComment: firstComment!),
                       ],
                       const SizedBox(height: 12),
                       Row(
@@ -136,23 +146,88 @@ class _XMediaPreviewState extends State<_XMediaPreview> {
     );
   }
 
-  Widget _mediaWidget(String path) {
-    final isImg = MediaFileService.isImage(path);
-    if (isImg) {
-      return Image.file(
-        File(path),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        errorBuilder: (ctx, e, s) => _videoPlaceholder(),
-      );
-    }
-    return _videoPlaceholder();
+  Widget _mediaWidget(String path) => MediaItemWidget(path: path);
+}
+
+class _XFirstCommentBlock extends StatefulWidget {
+  final String firstComment;
+
+  const _XFirstCommentBlock({required this.firstComment});
+
+  @override
+  State<_XFirstCommentBlock> createState() => _XFirstCommentBlockState();
+}
+
+class _XFirstCommentBlockState extends State<_XFirstCommentBlock> {
+  static const _accentColor = Color(0xFF1D9BF0);
+  bool _copied = false;
+
+  Future<void> _copy() async {
+    await Clipboard.setData(ClipboardData(text: widget.firstComment));
+    setState(() => _copied = true);
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) setState(() => _copied = false);
   }
 
-  Widget _videoPlaceholder() {
+  Future<void> _copyAndOpen() async {
+    await Clipboard.setData(ClipboardData(text: widget.firstComment));
+    final uri = Uri.parse('https://x.com/home');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: Colors.grey.shade900,
-      child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white70, size: 48)),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade900,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade800),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('1st comment', style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+              const Spacer(),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _copied
+                    ? const Icon(Icons.check, key: ValueKey('check'), size: 15, color: Colors.green)
+                    : IconButton(
+                        key: const ValueKey('copy'),
+                        icon: Icon(Icons.copy, size: 15, color: Colors.grey.shade500),
+                        tooltip: 'Copy 1st comment',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: _copy,
+                      ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _copyAndOpen,
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.open_in_new, size: 13, color: _accentColor),
+                      SizedBox(width: 3),
+                      Text('Copy & open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _accentColor)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(widget.firstComment, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        ],
+      ),
     );
   }
 }

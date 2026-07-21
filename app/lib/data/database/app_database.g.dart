@@ -49,6 +49,42 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _linkedinFirstCommentMeta =
+      const VerificationMeta('linkedinFirstComment');
+  @override
+  late final GeneratedColumn<String> linkedinFirstComment =
+      GeneratedColumn<String>(
+        'linkedin_first_comment',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _twitterFirstCommentMeta =
+      const VerificationMeta('twitterFirstComment');
+  @override
+  late final GeneratedColumn<String> twitterFirstComment =
+      GeneratedColumn<String>(
+        'twitter_first_comment',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _linkInFirstCommentMeta =
+      const VerificationMeta('linkInFirstComment');
+  @override
+  late final GeneratedColumn<bool> linkInFirstComment = GeneratedColumn<bool>(
+    'link_in_first_comment',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("link_in_first_comment" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _embeddingMeta = const VerificationMeta(
     'embedding',
   );
@@ -60,6 +96,17 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _postBaseTagsEmbeddingMeta =
+      const VerificationMeta('postBaseTagsEmbedding');
+  @override
+  late final GeneratedColumn<String> postBaseTagsEmbedding =
+      GeneratedColumn<String>(
+        'post_base_tags_embedding',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _categoryIdMeta = const VerificationMeta(
     'categoryId',
   );
@@ -113,6 +160,18 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
   late final GeneratedColumn<String> trendsBasePublishTagsJson =
       GeneratedColumn<String>(
         'trends_base_publish_tags_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      );
+  static const VerificationMeta _userAddedTrendTagsJsonMeta =
+      const VerificationMeta('userAddedTrendTagsJson');
+  @override
+  late final GeneratedColumn<String> userAddedTrendTagsJson =
+      GeneratedColumn<String>(
+        'user_added_trend_tags_json',
         aliasedName,
         false,
         type: DriftSqlType.string,
@@ -223,12 +282,17 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
     dump,
     linkedinContent,
     twitterContent,
+    linkedinFirstComment,
+    twitterFirstComment,
+    linkInFirstComment,
     embedding,
+    postBaseTagsEmbedding,
     categoryId,
     linksJson,
     postBaseTagsJson,
     categoryBasePublishTagsJson,
     trendsBasePublishTagsJson,
+    userAddedTrendTagsJson,
     mediaIdsJson,
     selectedPlatformsJson,
     publishedPlatformsJson,
@@ -279,10 +343,46 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
         ),
       );
     }
+    if (data.containsKey('linkedin_first_comment')) {
+      context.handle(
+        _linkedinFirstCommentMeta,
+        linkedinFirstComment.isAcceptableOrUnknown(
+          data['linkedin_first_comment']!,
+          _linkedinFirstCommentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('twitter_first_comment')) {
+      context.handle(
+        _twitterFirstCommentMeta,
+        twitterFirstComment.isAcceptableOrUnknown(
+          data['twitter_first_comment']!,
+          _twitterFirstCommentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('link_in_first_comment')) {
+      context.handle(
+        _linkInFirstCommentMeta,
+        linkInFirstComment.isAcceptableOrUnknown(
+          data['link_in_first_comment']!,
+          _linkInFirstCommentMeta,
+        ),
+      );
+    }
     if (data.containsKey('embedding')) {
       context.handle(
         _embeddingMeta,
         embedding.isAcceptableOrUnknown(data['embedding']!, _embeddingMeta),
+      );
+    }
+    if (data.containsKey('post_base_tags_embedding')) {
+      context.handle(
+        _postBaseTagsEmbeddingMeta,
+        postBaseTagsEmbedding.isAcceptableOrUnknown(
+          data['post_base_tags_embedding']!,
+          _postBaseTagsEmbeddingMeta,
+        ),
       );
     }
     if (data.containsKey('category_id')) {
@@ -321,6 +421,15 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
         trendsBasePublishTagsJson.isAcceptableOrUnknown(
           data['trends_base_publish_tags_json']!,
           _trendsBasePublishTagsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('user_added_trend_tags_json')) {
+      context.handle(
+        _userAddedTrendTagsJsonMeta,
+        userAddedTrendTagsJson.isAcceptableOrUnknown(
+          data['user_added_trend_tags_json']!,
+          _userAddedTrendTagsJsonMeta,
         ),
       );
     }
@@ -410,9 +519,25 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
         DriftSqlType.string,
         data['${effectivePrefix}twitter_content'],
       ),
+      linkedinFirstComment: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linkedin_first_comment'],
+      ),
+      twitterFirstComment: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}twitter_first_comment'],
+      ),
+      linkInFirstComment: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}link_in_first_comment'],
+      )!,
       embedding: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}embedding'],
+      ),
+      postBaseTagsEmbedding: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_base_tags_embedding'],
       ),
       categoryId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -433,6 +558,10 @@ class $PostsTable extends Posts with TableInfo<$PostsTable, Post> {
       trendsBasePublishTagsJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}trends_base_publish_tags_json'],
+      )!,
+      userAddedTrendTagsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_added_trend_tags_json'],
       )!,
       mediaIdsJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -480,12 +609,17 @@ class Post extends DataClass implements Insertable<Post> {
   final String dump;
   final String? linkedinContent;
   final String? twitterContent;
+  final String? linkedinFirstComment;
+  final String? twitterFirstComment;
+  final bool linkInFirstComment;
   final String? embedding;
+  final String? postBaseTagsEmbedding;
   final String? categoryId;
   final String linksJson;
   final String postBaseTagsJson;
   final String categoryBasePublishTagsJson;
   final String trendsBasePublishTagsJson;
+  final String userAddedTrendTagsJson;
   final String mediaIdsJson;
   final String selectedPlatformsJson;
   final String publishedPlatformsJson;
@@ -499,12 +633,17 @@ class Post extends DataClass implements Insertable<Post> {
     required this.dump,
     this.linkedinContent,
     this.twitterContent,
+    this.linkedinFirstComment,
+    this.twitterFirstComment,
+    required this.linkInFirstComment,
     this.embedding,
+    this.postBaseTagsEmbedding,
     this.categoryId,
     required this.linksJson,
     required this.postBaseTagsJson,
     required this.categoryBasePublishTagsJson,
     required this.trendsBasePublishTagsJson,
+    required this.userAddedTrendTagsJson,
     required this.mediaIdsJson,
     required this.selectedPlatformsJson,
     required this.publishedPlatformsJson,
@@ -525,8 +664,18 @@ class Post extends DataClass implements Insertable<Post> {
     if (!nullToAbsent || twitterContent != null) {
       map['twitter_content'] = Variable<String>(twitterContent);
     }
+    if (!nullToAbsent || linkedinFirstComment != null) {
+      map['linkedin_first_comment'] = Variable<String>(linkedinFirstComment);
+    }
+    if (!nullToAbsent || twitterFirstComment != null) {
+      map['twitter_first_comment'] = Variable<String>(twitterFirstComment);
+    }
+    map['link_in_first_comment'] = Variable<bool>(linkInFirstComment);
     if (!nullToAbsent || embedding != null) {
       map['embedding'] = Variable<String>(embedding);
+    }
+    if (!nullToAbsent || postBaseTagsEmbedding != null) {
+      map['post_base_tags_embedding'] = Variable<String>(postBaseTagsEmbedding);
     }
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<String>(categoryId);
@@ -538,6 +687,9 @@ class Post extends DataClass implements Insertable<Post> {
     );
     map['trends_base_publish_tags_json'] = Variable<String>(
       trendsBasePublishTagsJson,
+    );
+    map['user_added_trend_tags_json'] = Variable<String>(
+      userAddedTrendTagsJson,
     );
     map['media_ids_json'] = Variable<String>(mediaIdsJson);
     map['selected_platforms_json'] = Variable<String>(selectedPlatformsJson);
@@ -560,9 +712,19 @@ class Post extends DataClass implements Insertable<Post> {
       twitterContent: twitterContent == null && nullToAbsent
           ? const Value.absent()
           : Value(twitterContent),
+      linkedinFirstComment: linkedinFirstComment == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedinFirstComment),
+      twitterFirstComment: twitterFirstComment == null && nullToAbsent
+          ? const Value.absent()
+          : Value(twitterFirstComment),
+      linkInFirstComment: Value(linkInFirstComment),
       embedding: embedding == null && nullToAbsent
           ? const Value.absent()
           : Value(embedding),
+      postBaseTagsEmbedding: postBaseTagsEmbedding == null && nullToAbsent
+          ? const Value.absent()
+          : Value(postBaseTagsEmbedding),
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
@@ -570,6 +732,7 @@ class Post extends DataClass implements Insertable<Post> {
       postBaseTagsJson: Value(postBaseTagsJson),
       categoryBasePublishTagsJson: Value(categoryBasePublishTagsJson),
       trendsBasePublishTagsJson: Value(trendsBasePublishTagsJson),
+      userAddedTrendTagsJson: Value(userAddedTrendTagsJson),
       mediaIdsJson: Value(mediaIdsJson),
       selectedPlatformsJson: Value(selectedPlatformsJson),
       publishedPlatformsJson: Value(publishedPlatformsJson),
@@ -591,7 +754,17 @@ class Post extends DataClass implements Insertable<Post> {
       dump: serializer.fromJson<String>(json['dump']),
       linkedinContent: serializer.fromJson<String?>(json['linkedinContent']),
       twitterContent: serializer.fromJson<String?>(json['twitterContent']),
+      linkedinFirstComment: serializer.fromJson<String?>(
+        json['linkedinFirstComment'],
+      ),
+      twitterFirstComment: serializer.fromJson<String?>(
+        json['twitterFirstComment'],
+      ),
+      linkInFirstComment: serializer.fromJson<bool>(json['linkInFirstComment']),
       embedding: serializer.fromJson<String?>(json['embedding']),
+      postBaseTagsEmbedding: serializer.fromJson<String?>(
+        json['postBaseTagsEmbedding'],
+      ),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       linksJson: serializer.fromJson<String>(json['linksJson']),
       postBaseTagsJson: serializer.fromJson<String>(json['postBaseTagsJson']),
@@ -600,6 +773,9 @@ class Post extends DataClass implements Insertable<Post> {
       ),
       trendsBasePublishTagsJson: serializer.fromJson<String>(
         json['trendsBasePublishTagsJson'],
+      ),
+      userAddedTrendTagsJson: serializer.fromJson<String>(
+        json['userAddedTrendTagsJson'],
       ),
       mediaIdsJson: serializer.fromJson<String>(json['mediaIdsJson']),
       selectedPlatformsJson: serializer.fromJson<String>(
@@ -623,7 +799,13 @@ class Post extends DataClass implements Insertable<Post> {
       'dump': serializer.toJson<String>(dump),
       'linkedinContent': serializer.toJson<String?>(linkedinContent),
       'twitterContent': serializer.toJson<String?>(twitterContent),
+      'linkedinFirstComment': serializer.toJson<String?>(linkedinFirstComment),
+      'twitterFirstComment': serializer.toJson<String?>(twitterFirstComment),
+      'linkInFirstComment': serializer.toJson<bool>(linkInFirstComment),
       'embedding': serializer.toJson<String?>(embedding),
+      'postBaseTagsEmbedding': serializer.toJson<String?>(
+        postBaseTagsEmbedding,
+      ),
       'categoryId': serializer.toJson<String?>(categoryId),
       'linksJson': serializer.toJson<String>(linksJson),
       'postBaseTagsJson': serializer.toJson<String>(postBaseTagsJson),
@@ -632,6 +814,9 @@ class Post extends DataClass implements Insertable<Post> {
       ),
       'trendsBasePublishTagsJson': serializer.toJson<String>(
         trendsBasePublishTagsJson,
+      ),
+      'userAddedTrendTagsJson': serializer.toJson<String>(
+        userAddedTrendTagsJson,
       ),
       'mediaIdsJson': serializer.toJson<String>(mediaIdsJson),
       'selectedPlatformsJson': serializer.toJson<String>(selectedPlatformsJson),
@@ -651,12 +836,17 @@ class Post extends DataClass implements Insertable<Post> {
     String? dump,
     Value<String?> linkedinContent = const Value.absent(),
     Value<String?> twitterContent = const Value.absent(),
+    Value<String?> linkedinFirstComment = const Value.absent(),
+    Value<String?> twitterFirstComment = const Value.absent(),
+    bool? linkInFirstComment,
     Value<String?> embedding = const Value.absent(),
+    Value<String?> postBaseTagsEmbedding = const Value.absent(),
     Value<String?> categoryId = const Value.absent(),
     String? linksJson,
     String? postBaseTagsJson,
     String? categoryBasePublishTagsJson,
     String? trendsBasePublishTagsJson,
+    String? userAddedTrendTagsJson,
     String? mediaIdsJson,
     String? selectedPlatformsJson,
     String? publishedPlatformsJson,
@@ -674,7 +864,17 @@ class Post extends DataClass implements Insertable<Post> {
     twitterContent: twitterContent.present
         ? twitterContent.value
         : this.twitterContent,
+    linkedinFirstComment: linkedinFirstComment.present
+        ? linkedinFirstComment.value
+        : this.linkedinFirstComment,
+    twitterFirstComment: twitterFirstComment.present
+        ? twitterFirstComment.value
+        : this.twitterFirstComment,
+    linkInFirstComment: linkInFirstComment ?? this.linkInFirstComment,
     embedding: embedding.present ? embedding.value : this.embedding,
+    postBaseTagsEmbedding: postBaseTagsEmbedding.present
+        ? postBaseTagsEmbedding.value
+        : this.postBaseTagsEmbedding,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     linksJson: linksJson ?? this.linksJson,
     postBaseTagsJson: postBaseTagsJson ?? this.postBaseTagsJson,
@@ -682,6 +882,8 @@ class Post extends DataClass implements Insertable<Post> {
         categoryBasePublishTagsJson ?? this.categoryBasePublishTagsJson,
     trendsBasePublishTagsJson:
         trendsBasePublishTagsJson ?? this.trendsBasePublishTagsJson,
+    userAddedTrendTagsJson:
+        userAddedTrendTagsJson ?? this.userAddedTrendTagsJson,
     mediaIdsJson: mediaIdsJson ?? this.mediaIdsJson,
     selectedPlatformsJson: selectedPlatformsJson ?? this.selectedPlatformsJson,
     publishedPlatformsJson:
@@ -702,7 +904,19 @@ class Post extends DataClass implements Insertable<Post> {
       twitterContent: data.twitterContent.present
           ? data.twitterContent.value
           : this.twitterContent,
+      linkedinFirstComment: data.linkedinFirstComment.present
+          ? data.linkedinFirstComment.value
+          : this.linkedinFirstComment,
+      twitterFirstComment: data.twitterFirstComment.present
+          ? data.twitterFirstComment.value
+          : this.twitterFirstComment,
+      linkInFirstComment: data.linkInFirstComment.present
+          ? data.linkInFirstComment.value
+          : this.linkInFirstComment,
       embedding: data.embedding.present ? data.embedding.value : this.embedding,
+      postBaseTagsEmbedding: data.postBaseTagsEmbedding.present
+          ? data.postBaseTagsEmbedding.value
+          : this.postBaseTagsEmbedding,
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
@@ -716,6 +930,9 @@ class Post extends DataClass implements Insertable<Post> {
       trendsBasePublishTagsJson: data.trendsBasePublishTagsJson.present
           ? data.trendsBasePublishTagsJson.value
           : this.trendsBasePublishTagsJson,
+      userAddedTrendTagsJson: data.userAddedTrendTagsJson.present
+          ? data.userAddedTrendTagsJson.value
+          : this.userAddedTrendTagsJson,
       mediaIdsJson: data.mediaIdsJson.present
           ? data.mediaIdsJson.value
           : this.mediaIdsJson,
@@ -742,12 +959,17 @@ class Post extends DataClass implements Insertable<Post> {
           ..write('dump: $dump, ')
           ..write('linkedinContent: $linkedinContent, ')
           ..write('twitterContent: $twitterContent, ')
+          ..write('linkedinFirstComment: $linkedinFirstComment, ')
+          ..write('twitterFirstComment: $twitterFirstComment, ')
+          ..write('linkInFirstComment: $linkInFirstComment, ')
           ..write('embedding: $embedding, ')
+          ..write('postBaseTagsEmbedding: $postBaseTagsEmbedding, ')
           ..write('categoryId: $categoryId, ')
           ..write('linksJson: $linksJson, ')
           ..write('postBaseTagsJson: $postBaseTagsJson, ')
           ..write('categoryBasePublishTagsJson: $categoryBasePublishTagsJson, ')
           ..write('trendsBasePublishTagsJson: $trendsBasePublishTagsJson, ')
+          ..write('userAddedTrendTagsJson: $userAddedTrendTagsJson, ')
           ..write('mediaIdsJson: $mediaIdsJson, ')
           ..write('selectedPlatformsJson: $selectedPlatformsJson, ')
           ..write('publishedPlatformsJson: $publishedPlatformsJson, ')
@@ -761,17 +983,22 @@ class Post extends DataClass implements Insertable<Post> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     dump,
     linkedinContent,
     twitterContent,
+    linkedinFirstComment,
+    twitterFirstComment,
+    linkInFirstComment,
     embedding,
+    postBaseTagsEmbedding,
     categoryId,
     linksJson,
     postBaseTagsJson,
     categoryBasePublishTagsJson,
     trendsBasePublishTagsJson,
+    userAddedTrendTagsJson,
     mediaIdsJson,
     selectedPlatformsJson,
     publishedPlatformsJson,
@@ -780,7 +1007,7 @@ class Post extends DataClass implements Insertable<Post> {
     isRemoved,
     createdAt,
     updatedAt,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -789,13 +1016,18 @@ class Post extends DataClass implements Insertable<Post> {
           other.dump == this.dump &&
           other.linkedinContent == this.linkedinContent &&
           other.twitterContent == this.twitterContent &&
+          other.linkedinFirstComment == this.linkedinFirstComment &&
+          other.twitterFirstComment == this.twitterFirstComment &&
+          other.linkInFirstComment == this.linkInFirstComment &&
           other.embedding == this.embedding &&
+          other.postBaseTagsEmbedding == this.postBaseTagsEmbedding &&
           other.categoryId == this.categoryId &&
           other.linksJson == this.linksJson &&
           other.postBaseTagsJson == this.postBaseTagsJson &&
           other.categoryBasePublishTagsJson ==
               this.categoryBasePublishTagsJson &&
           other.trendsBasePublishTagsJson == this.trendsBasePublishTagsJson &&
+          other.userAddedTrendTagsJson == this.userAddedTrendTagsJson &&
           other.mediaIdsJson == this.mediaIdsJson &&
           other.selectedPlatformsJson == this.selectedPlatformsJson &&
           other.publishedPlatformsJson == this.publishedPlatformsJson &&
@@ -811,12 +1043,17 @@ class PostsCompanion extends UpdateCompanion<Post> {
   final Value<String> dump;
   final Value<String?> linkedinContent;
   final Value<String?> twitterContent;
+  final Value<String?> linkedinFirstComment;
+  final Value<String?> twitterFirstComment;
+  final Value<bool> linkInFirstComment;
   final Value<String?> embedding;
+  final Value<String?> postBaseTagsEmbedding;
   final Value<String?> categoryId;
   final Value<String> linksJson;
   final Value<String> postBaseTagsJson;
   final Value<String> categoryBasePublishTagsJson;
   final Value<String> trendsBasePublishTagsJson;
+  final Value<String> userAddedTrendTagsJson;
   final Value<String> mediaIdsJson;
   final Value<String> selectedPlatformsJson;
   final Value<String> publishedPlatformsJson;
@@ -831,12 +1068,17 @@ class PostsCompanion extends UpdateCompanion<Post> {
     this.dump = const Value.absent(),
     this.linkedinContent = const Value.absent(),
     this.twitterContent = const Value.absent(),
+    this.linkedinFirstComment = const Value.absent(),
+    this.twitterFirstComment = const Value.absent(),
+    this.linkInFirstComment = const Value.absent(),
     this.embedding = const Value.absent(),
+    this.postBaseTagsEmbedding = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.linksJson = const Value.absent(),
     this.postBaseTagsJson = const Value.absent(),
     this.categoryBasePublishTagsJson = const Value.absent(),
     this.trendsBasePublishTagsJson = const Value.absent(),
+    this.userAddedTrendTagsJson = const Value.absent(),
     this.mediaIdsJson = const Value.absent(),
     this.selectedPlatformsJson = const Value.absent(),
     this.publishedPlatformsJson = const Value.absent(),
@@ -852,12 +1094,17 @@ class PostsCompanion extends UpdateCompanion<Post> {
     this.dump = const Value.absent(),
     this.linkedinContent = const Value.absent(),
     this.twitterContent = const Value.absent(),
+    this.linkedinFirstComment = const Value.absent(),
+    this.twitterFirstComment = const Value.absent(),
+    this.linkInFirstComment = const Value.absent(),
     this.embedding = const Value.absent(),
+    this.postBaseTagsEmbedding = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.linksJson = const Value.absent(),
     this.postBaseTagsJson = const Value.absent(),
     this.categoryBasePublishTagsJson = const Value.absent(),
     this.trendsBasePublishTagsJson = const Value.absent(),
+    this.userAddedTrendTagsJson = const Value.absent(),
     this.mediaIdsJson = const Value.absent(),
     this.selectedPlatformsJson = const Value.absent(),
     this.publishedPlatformsJson = const Value.absent(),
@@ -875,12 +1122,17 @@ class PostsCompanion extends UpdateCompanion<Post> {
     Expression<String>? dump,
     Expression<String>? linkedinContent,
     Expression<String>? twitterContent,
+    Expression<String>? linkedinFirstComment,
+    Expression<String>? twitterFirstComment,
+    Expression<bool>? linkInFirstComment,
     Expression<String>? embedding,
+    Expression<String>? postBaseTagsEmbedding,
     Expression<String>? categoryId,
     Expression<String>? linksJson,
     Expression<String>? postBaseTagsJson,
     Expression<String>? categoryBasePublishTagsJson,
     Expression<String>? trendsBasePublishTagsJson,
+    Expression<String>? userAddedTrendTagsJson,
     Expression<String>? mediaIdsJson,
     Expression<String>? selectedPlatformsJson,
     Expression<String>? publishedPlatformsJson,
@@ -896,7 +1148,15 @@ class PostsCompanion extends UpdateCompanion<Post> {
       if (dump != null) 'dump': dump,
       if (linkedinContent != null) 'linkedin_content': linkedinContent,
       if (twitterContent != null) 'twitter_content': twitterContent,
+      if (linkedinFirstComment != null)
+        'linkedin_first_comment': linkedinFirstComment,
+      if (twitterFirstComment != null)
+        'twitter_first_comment': twitterFirstComment,
+      if (linkInFirstComment != null)
+        'link_in_first_comment': linkInFirstComment,
       if (embedding != null) 'embedding': embedding,
+      if (postBaseTagsEmbedding != null)
+        'post_base_tags_embedding': postBaseTagsEmbedding,
       if (categoryId != null) 'category_id': categoryId,
       if (linksJson != null) 'links_json': linksJson,
       if (postBaseTagsJson != null) 'post_base_tags_json': postBaseTagsJson,
@@ -904,6 +1164,8 @@ class PostsCompanion extends UpdateCompanion<Post> {
         'category_base_publish_tags_json': categoryBasePublishTagsJson,
       if (trendsBasePublishTagsJson != null)
         'trends_base_publish_tags_json': trendsBasePublishTagsJson,
+      if (userAddedTrendTagsJson != null)
+        'user_added_trend_tags_json': userAddedTrendTagsJson,
       if (mediaIdsJson != null) 'media_ids_json': mediaIdsJson,
       if (selectedPlatformsJson != null)
         'selected_platforms_json': selectedPlatformsJson,
@@ -923,12 +1185,17 @@ class PostsCompanion extends UpdateCompanion<Post> {
     Value<String>? dump,
     Value<String?>? linkedinContent,
     Value<String?>? twitterContent,
+    Value<String?>? linkedinFirstComment,
+    Value<String?>? twitterFirstComment,
+    Value<bool>? linkInFirstComment,
     Value<String?>? embedding,
+    Value<String?>? postBaseTagsEmbedding,
     Value<String?>? categoryId,
     Value<String>? linksJson,
     Value<String>? postBaseTagsJson,
     Value<String>? categoryBasePublishTagsJson,
     Value<String>? trendsBasePublishTagsJson,
+    Value<String>? userAddedTrendTagsJson,
     Value<String>? mediaIdsJson,
     Value<String>? selectedPlatformsJson,
     Value<String>? publishedPlatformsJson,
@@ -944,7 +1211,12 @@ class PostsCompanion extends UpdateCompanion<Post> {
       dump: dump ?? this.dump,
       linkedinContent: linkedinContent ?? this.linkedinContent,
       twitterContent: twitterContent ?? this.twitterContent,
+      linkedinFirstComment: linkedinFirstComment ?? this.linkedinFirstComment,
+      twitterFirstComment: twitterFirstComment ?? this.twitterFirstComment,
+      linkInFirstComment: linkInFirstComment ?? this.linkInFirstComment,
       embedding: embedding ?? this.embedding,
+      postBaseTagsEmbedding:
+          postBaseTagsEmbedding ?? this.postBaseTagsEmbedding,
       categoryId: categoryId ?? this.categoryId,
       linksJson: linksJson ?? this.linksJson,
       postBaseTagsJson: postBaseTagsJson ?? this.postBaseTagsJson,
@@ -952,6 +1224,8 @@ class PostsCompanion extends UpdateCompanion<Post> {
           categoryBasePublishTagsJson ?? this.categoryBasePublishTagsJson,
       trendsBasePublishTagsJson:
           trendsBasePublishTagsJson ?? this.trendsBasePublishTagsJson,
+      userAddedTrendTagsJson:
+          userAddedTrendTagsJson ?? this.userAddedTrendTagsJson,
       mediaIdsJson: mediaIdsJson ?? this.mediaIdsJson,
       selectedPlatformsJson:
           selectedPlatformsJson ?? this.selectedPlatformsJson,
@@ -981,8 +1255,26 @@ class PostsCompanion extends UpdateCompanion<Post> {
     if (twitterContent.present) {
       map['twitter_content'] = Variable<String>(twitterContent.value);
     }
+    if (linkedinFirstComment.present) {
+      map['linkedin_first_comment'] = Variable<String>(
+        linkedinFirstComment.value,
+      );
+    }
+    if (twitterFirstComment.present) {
+      map['twitter_first_comment'] = Variable<String>(
+        twitterFirstComment.value,
+      );
+    }
+    if (linkInFirstComment.present) {
+      map['link_in_first_comment'] = Variable<bool>(linkInFirstComment.value);
+    }
     if (embedding.present) {
       map['embedding'] = Variable<String>(embedding.value);
+    }
+    if (postBaseTagsEmbedding.present) {
+      map['post_base_tags_embedding'] = Variable<String>(
+        postBaseTagsEmbedding.value,
+      );
     }
     if (categoryId.present) {
       map['category_id'] = Variable<String>(categoryId.value);
@@ -1001,6 +1293,11 @@ class PostsCompanion extends UpdateCompanion<Post> {
     if (trendsBasePublishTagsJson.present) {
       map['trends_base_publish_tags_json'] = Variable<String>(
         trendsBasePublishTagsJson.value,
+      );
+    }
+    if (userAddedTrendTagsJson.present) {
+      map['user_added_trend_tags_json'] = Variable<String>(
+        userAddedTrendTagsJson.value,
       );
     }
     if (mediaIdsJson.present) {
@@ -1044,12 +1341,17 @@ class PostsCompanion extends UpdateCompanion<Post> {
           ..write('dump: $dump, ')
           ..write('linkedinContent: $linkedinContent, ')
           ..write('twitterContent: $twitterContent, ')
+          ..write('linkedinFirstComment: $linkedinFirstComment, ')
+          ..write('twitterFirstComment: $twitterFirstComment, ')
+          ..write('linkInFirstComment: $linkInFirstComment, ')
           ..write('embedding: $embedding, ')
+          ..write('postBaseTagsEmbedding: $postBaseTagsEmbedding, ')
           ..write('categoryId: $categoryId, ')
           ..write('linksJson: $linksJson, ')
           ..write('postBaseTagsJson: $postBaseTagsJson, ')
           ..write('categoryBasePublishTagsJson: $categoryBasePublishTagsJson, ')
           ..write('trendsBasePublishTagsJson: $trendsBasePublishTagsJson, ')
+          ..write('userAddedTrendTagsJson: $userAddedTrendTagsJson, ')
           ..write('mediaIdsJson: $mediaIdsJson, ')
           ..write('selectedPlatformsJson: $selectedPlatformsJson, ')
           ..write('publishedPlatformsJson: $publishedPlatformsJson, ')
@@ -1550,6 +1852,135 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     requiredDuringInsert: false,
     defaultValue: const Constant('system'),
   );
+  static const VerificationMeta _copyToLinkedinMeta = const VerificationMeta(
+    'copyToLinkedin',
+  );
+  @override
+  late final GeneratedColumn<bool> copyToLinkedin = GeneratedColumn<bool>(
+    'copy_to_linkedin',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("copy_to_linkedin" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _copyToXMeta = const VerificationMeta(
+    'copyToX',
+  );
+  @override
+  late final GeneratedColumn<bool> copyToX = GeneratedColumn<bool>(
+    'copy_to_x',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("copy_to_x" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _trendFetchCountMeta = const VerificationMeta(
+    'trendFetchCount',
+  );
+  @override
+  late final GeneratedColumn<int> trendFetchCount = GeneratedColumn<int>(
+    'trend_fetch_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(7),
+  );
+  static const VerificationMeta _trendTagsPerPostMeta = const VerificationMeta(
+    'trendTagsPerPost',
+  );
+  @override
+  late final GeneratedColumn<int> trendTagsPerPost = GeneratedColumn<int>(
+    'trend_tags_per_post',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(5),
+  );
+  static const VerificationMeta _postTagModeMeta = const VerificationMeta(
+    'postTagMode',
+  );
+  @override
+  late final GeneratedColumn<String> postTagMode = GeneratedColumn<String>(
+    'post_tag_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('range'),
+  );
+  static const VerificationMeta _postTagMinMeta = const VerificationMeta(
+    'postTagMin',
+  );
+  @override
+  late final GeneratedColumn<int> postTagMin = GeneratedColumn<int>(
+    'post_tag_min',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(3),
+  );
+  static const VerificationMeta _postTagMaxMeta = const VerificationMeta(
+    'postTagMax',
+  );
+  @override
+  late final GeneratedColumn<int> postTagMax = GeneratedColumn<int>(
+    'post_tag_max',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(10),
+  );
+  static const VerificationMeta _postTagExactMeta = const VerificationMeta(
+    'postTagExact',
+  );
+  @override
+  late final GeneratedColumn<int> postTagExact = GeneratedColumn<int>(
+    'post_tag_exact',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(5),
+  );
+  static const VerificationMeta _dumpTrendingTagsMeta = const VerificationMeta(
+    'dumpTrendingTags',
+  );
+  @override
+  late final GeneratedColumn<bool> dumpTrendingTags = GeneratedColumn<bool>(
+    'dump_trending_tags',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("dump_trending_tags" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _tagFormatMeta = const VerificationMeta(
+    'tagFormat',
+  );
+  @override
+  late final GeneratedColumn<String> tagFormat = GeneratedColumn<String>(
+    'tag_format',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('camelCase'),
+  );
   static const VerificationMeta _dbSchemaVersionMeta = const VerificationMeta(
     'dbSchemaVersion',
   );
@@ -1578,6 +2009,16 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
     xClientId,
     xClientSecret,
     themeMode,
+    copyToLinkedin,
+    copyToX,
+    trendFetchCount,
+    trendTagsPerPost,
+    postTagMode,
+    postTagMin,
+    postTagMax,
+    postTagExact,
+    dumpTrendingTags,
+    tagFormat,
     dbSchemaVersion,
   ];
   @override
@@ -1703,6 +2144,90 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
       );
     }
+    if (data.containsKey('copy_to_linkedin')) {
+      context.handle(
+        _copyToLinkedinMeta,
+        copyToLinkedin.isAcceptableOrUnknown(
+          data['copy_to_linkedin']!,
+          _copyToLinkedinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('copy_to_x')) {
+      context.handle(
+        _copyToXMeta,
+        copyToX.isAcceptableOrUnknown(data['copy_to_x']!, _copyToXMeta),
+      );
+    }
+    if (data.containsKey('trend_fetch_count')) {
+      context.handle(
+        _trendFetchCountMeta,
+        trendFetchCount.isAcceptableOrUnknown(
+          data['trend_fetch_count']!,
+          _trendFetchCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('trend_tags_per_post')) {
+      context.handle(
+        _trendTagsPerPostMeta,
+        trendTagsPerPost.isAcceptableOrUnknown(
+          data['trend_tags_per_post']!,
+          _trendTagsPerPostMeta,
+        ),
+      );
+    }
+    if (data.containsKey('post_tag_mode')) {
+      context.handle(
+        _postTagModeMeta,
+        postTagMode.isAcceptableOrUnknown(
+          data['post_tag_mode']!,
+          _postTagModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('post_tag_min')) {
+      context.handle(
+        _postTagMinMeta,
+        postTagMin.isAcceptableOrUnknown(
+          data['post_tag_min']!,
+          _postTagMinMeta,
+        ),
+      );
+    }
+    if (data.containsKey('post_tag_max')) {
+      context.handle(
+        _postTagMaxMeta,
+        postTagMax.isAcceptableOrUnknown(
+          data['post_tag_max']!,
+          _postTagMaxMeta,
+        ),
+      );
+    }
+    if (data.containsKey('post_tag_exact')) {
+      context.handle(
+        _postTagExactMeta,
+        postTagExact.isAcceptableOrUnknown(
+          data['post_tag_exact']!,
+          _postTagExactMeta,
+        ),
+      );
+    }
+    if (data.containsKey('dump_trending_tags')) {
+      context.handle(
+        _dumpTrendingTagsMeta,
+        dumpTrendingTags.isAcceptableOrUnknown(
+          data['dump_trending_tags']!,
+          _dumpTrendingTagsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('tag_format')) {
+      context.handle(
+        _tagFormatMeta,
+        tagFormat.isAcceptableOrUnknown(data['tag_format']!, _tagFormatMeta),
+      );
+    }
     if (data.containsKey('db_schema_version')) {
       context.handle(
         _dbSchemaVersionMeta,
@@ -1777,6 +2302,46 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
         DriftSqlType.string,
         data['${effectivePrefix}theme_mode'],
       )!,
+      copyToLinkedin: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}copy_to_linkedin'],
+      )!,
+      copyToX: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}copy_to_x'],
+      )!,
+      trendFetchCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}trend_fetch_count'],
+      )!,
+      trendTagsPerPost: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}trend_tags_per_post'],
+      )!,
+      postTagMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_tag_mode'],
+      )!,
+      postTagMin: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}post_tag_min'],
+      )!,
+      postTagMax: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}post_tag_max'],
+      )!,
+      postTagExact: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}post_tag_exact'],
+      )!,
+      dumpTrendingTags: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}dump_trending_tags'],
+      )!,
+      tagFormat: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag_format'],
+      )!,
       dbSchemaVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}db_schema_version'],
@@ -1805,6 +2370,16 @@ class Setting extends DataClass implements Insertable<Setting> {
   final String? xClientId;
   final String? xClientSecret;
   final String themeMode;
+  final bool copyToLinkedin;
+  final bool copyToX;
+  final int trendFetchCount;
+  final int trendTagsPerPost;
+  final String postTagMode;
+  final int postTagMin;
+  final int postTagMax;
+  final int postTagExact;
+  final bool dumpTrendingTags;
+  final String tagFormat;
   final int dbSchemaVersion;
   const Setting({
     required this.rowId,
@@ -1821,6 +2396,16 @@ class Setting extends DataClass implements Insertable<Setting> {
     this.xClientId,
     this.xClientSecret,
     required this.themeMode,
+    required this.copyToLinkedin,
+    required this.copyToX,
+    required this.trendFetchCount,
+    required this.trendTagsPerPost,
+    required this.postTagMode,
+    required this.postTagMin,
+    required this.postTagMax,
+    required this.postTagExact,
+    required this.dumpTrendingTags,
+    required this.tagFormat,
     required this.dbSchemaVersion,
   });
   @override
@@ -1862,6 +2447,16 @@ class Setting extends DataClass implements Insertable<Setting> {
       map['x_client_secret'] = Variable<String>(xClientSecret);
     }
     map['theme_mode'] = Variable<String>(themeMode);
+    map['copy_to_linkedin'] = Variable<bool>(copyToLinkedin);
+    map['copy_to_x'] = Variable<bool>(copyToX);
+    map['trend_fetch_count'] = Variable<int>(trendFetchCount);
+    map['trend_tags_per_post'] = Variable<int>(trendTagsPerPost);
+    map['post_tag_mode'] = Variable<String>(postTagMode);
+    map['post_tag_min'] = Variable<int>(postTagMin);
+    map['post_tag_max'] = Variable<int>(postTagMax);
+    map['post_tag_exact'] = Variable<int>(postTagExact);
+    map['dump_trending_tags'] = Variable<bool>(dumpTrendingTags);
+    map['tag_format'] = Variable<String>(tagFormat);
     map['db_schema_version'] = Variable<int>(dbSchemaVersion);
     return map;
   }
@@ -1904,6 +2499,16 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? const Value.absent()
           : Value(xClientSecret),
       themeMode: Value(themeMode),
+      copyToLinkedin: Value(copyToLinkedin),
+      copyToX: Value(copyToX),
+      trendFetchCount: Value(trendFetchCount),
+      trendTagsPerPost: Value(trendTagsPerPost),
+      postTagMode: Value(postTagMode),
+      postTagMin: Value(postTagMin),
+      postTagMax: Value(postTagMax),
+      postTagExact: Value(postTagExact),
+      dumpTrendingTags: Value(dumpTrendingTags),
+      tagFormat: Value(tagFormat),
       dbSchemaVersion: Value(dbSchemaVersion),
     );
   }
@@ -1934,6 +2539,16 @@ class Setting extends DataClass implements Insertable<Setting> {
       xClientId: serializer.fromJson<String?>(json['xClientId']),
       xClientSecret: serializer.fromJson<String?>(json['xClientSecret']),
       themeMode: serializer.fromJson<String>(json['themeMode']),
+      copyToLinkedin: serializer.fromJson<bool>(json['copyToLinkedin']),
+      copyToX: serializer.fromJson<bool>(json['copyToX']),
+      trendFetchCount: serializer.fromJson<int>(json['trendFetchCount']),
+      trendTagsPerPost: serializer.fromJson<int>(json['trendTagsPerPost']),
+      postTagMode: serializer.fromJson<String>(json['postTagMode']),
+      postTagMin: serializer.fromJson<int>(json['postTagMin']),
+      postTagMax: serializer.fromJson<int>(json['postTagMax']),
+      postTagExact: serializer.fromJson<int>(json['postTagExact']),
+      dumpTrendingTags: serializer.fromJson<bool>(json['dumpTrendingTags']),
+      tagFormat: serializer.fromJson<String>(json['tagFormat']),
       dbSchemaVersion: serializer.fromJson<int>(json['dbSchemaVersion']),
     );
   }
@@ -1955,6 +2570,16 @@ class Setting extends DataClass implements Insertable<Setting> {
       'xClientId': serializer.toJson<String?>(xClientId),
       'xClientSecret': serializer.toJson<String?>(xClientSecret),
       'themeMode': serializer.toJson<String>(themeMode),
+      'copyToLinkedin': serializer.toJson<bool>(copyToLinkedin),
+      'copyToX': serializer.toJson<bool>(copyToX),
+      'trendFetchCount': serializer.toJson<int>(trendFetchCount),
+      'trendTagsPerPost': serializer.toJson<int>(trendTagsPerPost),
+      'postTagMode': serializer.toJson<String>(postTagMode),
+      'postTagMin': serializer.toJson<int>(postTagMin),
+      'postTagMax': serializer.toJson<int>(postTagMax),
+      'postTagExact': serializer.toJson<int>(postTagExact),
+      'dumpTrendingTags': serializer.toJson<bool>(dumpTrendingTags),
+      'tagFormat': serializer.toJson<String>(tagFormat),
       'dbSchemaVersion': serializer.toJson<int>(dbSchemaVersion),
     };
   }
@@ -1974,6 +2599,16 @@ class Setting extends DataClass implements Insertable<Setting> {
     Value<String?> xClientId = const Value.absent(),
     Value<String?> xClientSecret = const Value.absent(),
     String? themeMode,
+    bool? copyToLinkedin,
+    bool? copyToX,
+    int? trendFetchCount,
+    int? trendTagsPerPost,
+    String? postTagMode,
+    int? postTagMin,
+    int? postTagMax,
+    int? postTagExact,
+    bool? dumpTrendingTags,
+    String? tagFormat,
     int? dbSchemaVersion,
   }) => Setting(
     rowId: rowId ?? this.rowId,
@@ -2002,6 +2637,16 @@ class Setting extends DataClass implements Insertable<Setting> {
         ? xClientSecret.value
         : this.xClientSecret,
     themeMode: themeMode ?? this.themeMode,
+    copyToLinkedin: copyToLinkedin ?? this.copyToLinkedin,
+    copyToX: copyToX ?? this.copyToX,
+    trendFetchCount: trendFetchCount ?? this.trendFetchCount,
+    trendTagsPerPost: trendTagsPerPost ?? this.trendTagsPerPost,
+    postTagMode: postTagMode ?? this.postTagMode,
+    postTagMin: postTagMin ?? this.postTagMin,
+    postTagMax: postTagMax ?? this.postTagMax,
+    postTagExact: postTagExact ?? this.postTagExact,
+    dumpTrendingTags: dumpTrendingTags ?? this.dumpTrendingTags,
+    tagFormat: tagFormat ?? this.tagFormat,
     dbSchemaVersion: dbSchemaVersion ?? this.dbSchemaVersion,
   );
   Setting copyWithCompanion(SettingsCompanion data) {
@@ -2040,6 +2685,32 @@ class Setting extends DataClass implements Insertable<Setting> {
           ? data.xClientSecret.value
           : this.xClientSecret,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      copyToLinkedin: data.copyToLinkedin.present
+          ? data.copyToLinkedin.value
+          : this.copyToLinkedin,
+      copyToX: data.copyToX.present ? data.copyToX.value : this.copyToX,
+      trendFetchCount: data.trendFetchCount.present
+          ? data.trendFetchCount.value
+          : this.trendFetchCount,
+      trendTagsPerPost: data.trendTagsPerPost.present
+          ? data.trendTagsPerPost.value
+          : this.trendTagsPerPost,
+      postTagMode: data.postTagMode.present
+          ? data.postTagMode.value
+          : this.postTagMode,
+      postTagMin: data.postTagMin.present
+          ? data.postTagMin.value
+          : this.postTagMin,
+      postTagMax: data.postTagMax.present
+          ? data.postTagMax.value
+          : this.postTagMax,
+      postTagExact: data.postTagExact.present
+          ? data.postTagExact.value
+          : this.postTagExact,
+      dumpTrendingTags: data.dumpTrendingTags.present
+          ? data.dumpTrendingTags.value
+          : this.dumpTrendingTags,
+      tagFormat: data.tagFormat.present ? data.tagFormat.value : this.tagFormat,
       dbSchemaVersion: data.dbSchemaVersion.present
           ? data.dbSchemaVersion.value
           : this.dbSchemaVersion,
@@ -2063,13 +2734,23 @@ class Setting extends DataClass implements Insertable<Setting> {
           ..write('xClientId: $xClientId, ')
           ..write('xClientSecret: $xClientSecret, ')
           ..write('themeMode: $themeMode, ')
+          ..write('copyToLinkedin: $copyToLinkedin, ')
+          ..write('copyToX: $copyToX, ')
+          ..write('trendFetchCount: $trendFetchCount, ')
+          ..write('trendTagsPerPost: $trendTagsPerPost, ')
+          ..write('postTagMode: $postTagMode, ')
+          ..write('postTagMin: $postTagMin, ')
+          ..write('postTagMax: $postTagMax, ')
+          ..write('postTagExact: $postTagExact, ')
+          ..write('dumpTrendingTags: $dumpTrendingTags, ')
+          ..write('tagFormat: $tagFormat, ')
           ..write('dbSchemaVersion: $dbSchemaVersion')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     rowId,
     linkedinAuthToken,
     linkedinRefreshToken,
@@ -2084,8 +2765,18 @@ class Setting extends DataClass implements Insertable<Setting> {
     xClientId,
     xClientSecret,
     themeMode,
+    copyToLinkedin,
+    copyToX,
+    trendFetchCount,
+    trendTagsPerPost,
+    postTagMode,
+    postTagMin,
+    postTagMax,
+    postTagExact,
+    dumpTrendingTags,
+    tagFormat,
     dbSchemaVersion,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2104,6 +2795,16 @@ class Setting extends DataClass implements Insertable<Setting> {
           other.xClientId == this.xClientId &&
           other.xClientSecret == this.xClientSecret &&
           other.themeMode == this.themeMode &&
+          other.copyToLinkedin == this.copyToLinkedin &&
+          other.copyToX == this.copyToX &&
+          other.trendFetchCount == this.trendFetchCount &&
+          other.trendTagsPerPost == this.trendTagsPerPost &&
+          other.postTagMode == this.postTagMode &&
+          other.postTagMin == this.postTagMin &&
+          other.postTagMax == this.postTagMax &&
+          other.postTagExact == this.postTagExact &&
+          other.dumpTrendingTags == this.dumpTrendingTags &&
+          other.tagFormat == this.tagFormat &&
           other.dbSchemaVersion == this.dbSchemaVersion);
 }
 
@@ -2122,6 +2823,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   final Value<String?> xClientId;
   final Value<String?> xClientSecret;
   final Value<String> themeMode;
+  final Value<bool> copyToLinkedin;
+  final Value<bool> copyToX;
+  final Value<int> trendFetchCount;
+  final Value<int> trendTagsPerPost;
+  final Value<String> postTagMode;
+  final Value<int> postTagMin;
+  final Value<int> postTagMax;
+  final Value<int> postTagExact;
+  final Value<bool> dumpTrendingTags;
+  final Value<String> tagFormat;
   final Value<int> dbSchemaVersion;
   const SettingsCompanion({
     this.rowId = const Value.absent(),
@@ -2138,6 +2849,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.xClientId = const Value.absent(),
     this.xClientSecret = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.copyToLinkedin = const Value.absent(),
+    this.copyToX = const Value.absent(),
+    this.trendFetchCount = const Value.absent(),
+    this.trendTagsPerPost = const Value.absent(),
+    this.postTagMode = const Value.absent(),
+    this.postTagMin = const Value.absent(),
+    this.postTagMax = const Value.absent(),
+    this.postTagExact = const Value.absent(),
+    this.dumpTrendingTags = const Value.absent(),
+    this.tagFormat = const Value.absent(),
     this.dbSchemaVersion = const Value.absent(),
   });
   SettingsCompanion.insert({
@@ -2155,6 +2876,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.xClientId = const Value.absent(),
     this.xClientSecret = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.copyToLinkedin = const Value.absent(),
+    this.copyToX = const Value.absent(),
+    this.trendFetchCount = const Value.absent(),
+    this.trendTagsPerPost = const Value.absent(),
+    this.postTagMode = const Value.absent(),
+    this.postTagMin = const Value.absent(),
+    this.postTagMax = const Value.absent(),
+    this.postTagExact = const Value.absent(),
+    this.dumpTrendingTags = const Value.absent(),
+    this.tagFormat = const Value.absent(),
     this.dbSchemaVersion = const Value.absent(),
   });
   static Insertable<Setting> custom({
@@ -2172,6 +2903,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Expression<String>? xClientId,
     Expression<String>? xClientSecret,
     Expression<String>? themeMode,
+    Expression<bool>? copyToLinkedin,
+    Expression<bool>? copyToX,
+    Expression<int>? trendFetchCount,
+    Expression<int>? trendTagsPerPost,
+    Expression<String>? postTagMode,
+    Expression<int>? postTagMin,
+    Expression<int>? postTagMax,
+    Expression<int>? postTagExact,
+    Expression<bool>? dumpTrendingTags,
+    Expression<String>? tagFormat,
     Expression<int>? dbSchemaVersion,
   }) {
     return RawValuesInsertable({
@@ -2191,6 +2932,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       if (xClientId != null) 'x_client_id': xClientId,
       if (xClientSecret != null) 'x_client_secret': xClientSecret,
       if (themeMode != null) 'theme_mode': themeMode,
+      if (copyToLinkedin != null) 'copy_to_linkedin': copyToLinkedin,
+      if (copyToX != null) 'copy_to_x': copyToX,
+      if (trendFetchCount != null) 'trend_fetch_count': trendFetchCount,
+      if (trendTagsPerPost != null) 'trend_tags_per_post': trendTagsPerPost,
+      if (postTagMode != null) 'post_tag_mode': postTagMode,
+      if (postTagMin != null) 'post_tag_min': postTagMin,
+      if (postTagMax != null) 'post_tag_max': postTagMax,
+      if (postTagExact != null) 'post_tag_exact': postTagExact,
+      if (dumpTrendingTags != null) 'dump_trending_tags': dumpTrendingTags,
+      if (tagFormat != null) 'tag_format': tagFormat,
       if (dbSchemaVersion != null) 'db_schema_version': dbSchemaVersion,
     });
   }
@@ -2210,6 +2961,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     Value<String?>? xClientId,
     Value<String?>? xClientSecret,
     Value<String>? themeMode,
+    Value<bool>? copyToLinkedin,
+    Value<bool>? copyToX,
+    Value<int>? trendFetchCount,
+    Value<int>? trendTagsPerPost,
+    Value<String>? postTagMode,
+    Value<int>? postTagMin,
+    Value<int>? postTagMax,
+    Value<int>? postTagExact,
+    Value<bool>? dumpTrendingTags,
+    Value<String>? tagFormat,
     Value<int>? dbSchemaVersion,
   }) {
     return SettingsCompanion(
@@ -2227,6 +2988,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
       xClientId: xClientId ?? this.xClientId,
       xClientSecret: xClientSecret ?? this.xClientSecret,
       themeMode: themeMode ?? this.themeMode,
+      copyToLinkedin: copyToLinkedin ?? this.copyToLinkedin,
+      copyToX: copyToX ?? this.copyToX,
+      trendFetchCount: trendFetchCount ?? this.trendFetchCount,
+      trendTagsPerPost: trendTagsPerPost ?? this.trendTagsPerPost,
+      postTagMode: postTagMode ?? this.postTagMode,
+      postTagMin: postTagMin ?? this.postTagMin,
+      postTagMax: postTagMax ?? this.postTagMax,
+      postTagExact: postTagExact ?? this.postTagExact,
+      dumpTrendingTags: dumpTrendingTags ?? this.dumpTrendingTags,
+      tagFormat: tagFormat ?? this.tagFormat,
       dbSchemaVersion: dbSchemaVersion ?? this.dbSchemaVersion,
     );
   }
@@ -2280,6 +3051,36 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     if (themeMode.present) {
       map['theme_mode'] = Variable<String>(themeMode.value);
     }
+    if (copyToLinkedin.present) {
+      map['copy_to_linkedin'] = Variable<bool>(copyToLinkedin.value);
+    }
+    if (copyToX.present) {
+      map['copy_to_x'] = Variable<bool>(copyToX.value);
+    }
+    if (trendFetchCount.present) {
+      map['trend_fetch_count'] = Variable<int>(trendFetchCount.value);
+    }
+    if (trendTagsPerPost.present) {
+      map['trend_tags_per_post'] = Variable<int>(trendTagsPerPost.value);
+    }
+    if (postTagMode.present) {
+      map['post_tag_mode'] = Variable<String>(postTagMode.value);
+    }
+    if (postTagMin.present) {
+      map['post_tag_min'] = Variable<int>(postTagMin.value);
+    }
+    if (postTagMax.present) {
+      map['post_tag_max'] = Variable<int>(postTagMax.value);
+    }
+    if (postTagExact.present) {
+      map['post_tag_exact'] = Variable<int>(postTagExact.value);
+    }
+    if (dumpTrendingTags.present) {
+      map['dump_trending_tags'] = Variable<bool>(dumpTrendingTags.value);
+    }
+    if (tagFormat.present) {
+      map['tag_format'] = Variable<String>(tagFormat.value);
+    }
     if (dbSchemaVersion.present) {
       map['db_schema_version'] = Variable<int>(dbSchemaVersion.value);
     }
@@ -2303,6 +3104,16 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
           ..write('xClientId: $xClientId, ')
           ..write('xClientSecret: $xClientSecret, ')
           ..write('themeMode: $themeMode, ')
+          ..write('copyToLinkedin: $copyToLinkedin, ')
+          ..write('copyToX: $copyToX, ')
+          ..write('trendFetchCount: $trendFetchCount, ')
+          ..write('trendTagsPerPost: $trendTagsPerPost, ')
+          ..write('postTagMode: $postTagMode, ')
+          ..write('postTagMin: $postTagMin, ')
+          ..write('postTagMax: $postTagMax, ')
+          ..write('postTagExact: $postTagExact, ')
+          ..write('dumpTrendingTags: $dumpTrendingTags, ')
+          ..write('tagFormat: $tagFormat, ')
           ..write('dbSchemaVersion: $dbSchemaVersion')
           ..write(')'))
         .toString();
@@ -3417,6 +4228,31 @@ class $TrendingsTable extends Trendings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _geminiFilterSuccessMeta =
+      const VerificationMeta('geminiFilterSuccess');
+  @override
+  late final GeneratedColumn<bool> geminiFilterSuccess = GeneratedColumn<bool>(
+    'gemini_filter_success',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("gemini_filter_success" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _rawTrendingJsonMeta = const VerificationMeta(
+    'rawTrendingJson',
+  );
+  @override
+  late final GeneratedColumn<String> rawTrendingJson = GeneratedColumn<String>(
+    'raw_trending_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3427,6 +4263,8 @@ class $TrendingsTable extends Trendings
     eachEmbeddingJson,
     platform,
     fetchError,
+    geminiFilterSuccess,
+    rawTrendingJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3501,6 +4339,24 @@ class $TrendingsTable extends Trendings
         fetchError.isAcceptableOrUnknown(data['fetch_error']!, _fetchErrorMeta),
       );
     }
+    if (data.containsKey('gemini_filter_success')) {
+      context.handle(
+        _geminiFilterSuccessMeta,
+        geminiFilterSuccess.isAcceptableOrUnknown(
+          data['gemini_filter_success']!,
+          _geminiFilterSuccessMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_trending_json')) {
+      context.handle(
+        _rawTrendingJsonMeta,
+        rawTrendingJson.isAcceptableOrUnknown(
+          data['raw_trending_json']!,
+          _rawTrendingJsonMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3542,6 +4398,14 @@ class $TrendingsTable extends Trendings
         DriftSqlType.string,
         data['${effectivePrefix}fetch_error'],
       ),
+      geminiFilterSuccess: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}gemini_filter_success'],
+      )!,
+      rawTrendingJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_trending_json'],
+      ),
     );
   }
 
@@ -3560,6 +4424,8 @@ class Trending extends DataClass implements Insertable<Trending> {
   final String eachEmbeddingJson;
   final String platform;
   final String? fetchError;
+  final bool geminiFilterSuccess;
+  final String? rawTrendingJson;
   const Trending({
     required this.id,
     required this.trendTopicsJson,
@@ -3569,6 +4435,8 @@ class Trending extends DataClass implements Insertable<Trending> {
     required this.eachEmbeddingJson,
     required this.platform,
     this.fetchError,
+    required this.geminiFilterSuccess,
+    this.rawTrendingJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3582,6 +4450,10 @@ class Trending extends DataClass implements Insertable<Trending> {
     map['platform'] = Variable<String>(platform);
     if (!nullToAbsent || fetchError != null) {
       map['fetch_error'] = Variable<String>(fetchError);
+    }
+    map['gemini_filter_success'] = Variable<bool>(geminiFilterSuccess);
+    if (!nullToAbsent || rawTrendingJson != null) {
+      map['raw_trending_json'] = Variable<String>(rawTrendingJson);
     }
     return map;
   }
@@ -3598,6 +4470,10 @@ class Trending extends DataClass implements Insertable<Trending> {
       fetchError: fetchError == null && nullToAbsent
           ? const Value.absent()
           : Value(fetchError),
+      geminiFilterSuccess: Value(geminiFilterSuccess),
+      rawTrendingJson: rawTrendingJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawTrendingJson),
     );
   }
 
@@ -3617,6 +4493,10 @@ class Trending extends DataClass implements Insertable<Trending> {
       eachEmbeddingJson: serializer.fromJson<String>(json['eachEmbeddingJson']),
       platform: serializer.fromJson<String>(json['platform']),
       fetchError: serializer.fromJson<String?>(json['fetchError']),
+      geminiFilterSuccess: serializer.fromJson<bool>(
+        json['geminiFilterSuccess'],
+      ),
+      rawTrendingJson: serializer.fromJson<String?>(json['rawTrendingJson']),
     );
   }
   @override
@@ -3631,6 +4511,8 @@ class Trending extends DataClass implements Insertable<Trending> {
       'eachEmbeddingJson': serializer.toJson<String>(eachEmbeddingJson),
       'platform': serializer.toJson<String>(platform),
       'fetchError': serializer.toJson<String?>(fetchError),
+      'geminiFilterSuccess': serializer.toJson<bool>(geminiFilterSuccess),
+      'rawTrendingJson': serializer.toJson<String?>(rawTrendingJson),
     };
   }
 
@@ -3643,6 +4525,8 @@ class Trending extends DataClass implements Insertable<Trending> {
     String? eachEmbeddingJson,
     String? platform,
     Value<String?> fetchError = const Value.absent(),
+    bool? geminiFilterSuccess,
+    Value<String?> rawTrendingJson = const Value.absent(),
   }) => Trending(
     id: id ?? this.id,
     trendTopicsJson: trendTopicsJson ?? this.trendTopicsJson,
@@ -3652,6 +4536,10 @@ class Trending extends DataClass implements Insertable<Trending> {
     eachEmbeddingJson: eachEmbeddingJson ?? this.eachEmbeddingJson,
     platform: platform ?? this.platform,
     fetchError: fetchError.present ? fetchError.value : this.fetchError,
+    geminiFilterSuccess: geminiFilterSuccess ?? this.geminiFilterSuccess,
+    rawTrendingJson: rawTrendingJson.present
+        ? rawTrendingJson.value
+        : this.rawTrendingJson,
   );
   Trending copyWithCompanion(TrendingsCompanion data) {
     return Trending(
@@ -3673,6 +4561,12 @@ class Trending extends DataClass implements Insertable<Trending> {
       fetchError: data.fetchError.present
           ? data.fetchError.value
           : this.fetchError,
+      geminiFilterSuccess: data.geminiFilterSuccess.present
+          ? data.geminiFilterSuccess.value
+          : this.geminiFilterSuccess,
+      rawTrendingJson: data.rawTrendingJson.present
+          ? data.rawTrendingJson.value
+          : this.rawTrendingJson,
     );
   }
 
@@ -3686,7 +4580,9 @@ class Trending extends DataClass implements Insertable<Trending> {
           ..write('fullEmbeddingJson: $fullEmbeddingJson, ')
           ..write('eachEmbeddingJson: $eachEmbeddingJson, ')
           ..write('platform: $platform, ')
-          ..write('fetchError: $fetchError')
+          ..write('fetchError: $fetchError, ')
+          ..write('geminiFilterSuccess: $geminiFilterSuccess, ')
+          ..write('rawTrendingJson: $rawTrendingJson')
           ..write(')'))
         .toString();
   }
@@ -3701,6 +4597,8 @@ class Trending extends DataClass implements Insertable<Trending> {
     eachEmbeddingJson,
     platform,
     fetchError,
+    geminiFilterSuccess,
+    rawTrendingJson,
   );
   @override
   bool operator ==(Object other) =>
@@ -3713,7 +4611,9 @@ class Trending extends DataClass implements Insertable<Trending> {
           other.fullEmbeddingJson == this.fullEmbeddingJson &&
           other.eachEmbeddingJson == this.eachEmbeddingJson &&
           other.platform == this.platform &&
-          other.fetchError == this.fetchError);
+          other.fetchError == this.fetchError &&
+          other.geminiFilterSuccess == this.geminiFilterSuccess &&
+          other.rawTrendingJson == this.rawTrendingJson);
 }
 
 class TrendingsCompanion extends UpdateCompanion<Trending> {
@@ -3725,6 +4625,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
   final Value<String> eachEmbeddingJson;
   final Value<String> platform;
   final Value<String?> fetchError;
+  final Value<bool> geminiFilterSuccess;
+  final Value<String?> rawTrendingJson;
   final Value<int> rowid;
   const TrendingsCompanion({
     this.id = const Value.absent(),
@@ -3735,6 +4637,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     this.eachEmbeddingJson = const Value.absent(),
     this.platform = const Value.absent(),
     this.fetchError = const Value.absent(),
+    this.geminiFilterSuccess = const Value.absent(),
+    this.rawTrendingJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TrendingsCompanion.insert({
@@ -3746,6 +4650,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     this.eachEmbeddingJson = const Value.absent(),
     this.platform = const Value.absent(),
     this.fetchError = const Value.absent(),
+    this.geminiFilterSuccess = const Value.absent(),
+    this.rawTrendingJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        addedDate = Value(addedDate);
@@ -3758,6 +4664,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     Expression<String>? eachEmbeddingJson,
     Expression<String>? platform,
     Expression<String>? fetchError,
+    Expression<bool>? geminiFilterSuccess,
+    Expression<String>? rawTrendingJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3770,6 +4678,9 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
       if (eachEmbeddingJson != null) 'each_embedding_json': eachEmbeddingJson,
       if (platform != null) 'platform': platform,
       if (fetchError != null) 'fetch_error': fetchError,
+      if (geminiFilterSuccess != null)
+        'gemini_filter_success': geminiFilterSuccess,
+      if (rawTrendingJson != null) 'raw_trending_json': rawTrendingJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3783,6 +4694,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     Value<String>? eachEmbeddingJson,
     Value<String>? platform,
     Value<String?>? fetchError,
+    Value<bool>? geminiFilterSuccess,
+    Value<String?>? rawTrendingJson,
     Value<int>? rowid,
   }) {
     return TrendingsCompanion(
@@ -3794,6 +4707,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
       eachEmbeddingJson: eachEmbeddingJson ?? this.eachEmbeddingJson,
       platform: platform ?? this.platform,
       fetchError: fetchError ?? this.fetchError,
+      geminiFilterSuccess: geminiFilterSuccess ?? this.geminiFilterSuccess,
+      rawTrendingJson: rawTrendingJson ?? this.rawTrendingJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3825,6 +4740,12 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
     if (fetchError.present) {
       map['fetch_error'] = Variable<String>(fetchError.value);
     }
+    if (geminiFilterSuccess.present) {
+      map['gemini_filter_success'] = Variable<bool>(geminiFilterSuccess.value);
+    }
+    if (rawTrendingJson.present) {
+      map['raw_trending_json'] = Variable<String>(rawTrendingJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3842,6 +4763,8 @@ class TrendingsCompanion extends UpdateCompanion<Trending> {
           ..write('eachEmbeddingJson: $eachEmbeddingJson, ')
           ..write('platform: $platform, ')
           ..write('fetchError: $fetchError, ')
+          ..write('geminiFilterSuccess: $geminiFilterSuccess, ')
+          ..write('rawTrendingJson: $rawTrendingJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3879,12 +4802,17 @@ typedef $$PostsTableCreateCompanionBuilder =
       Value<String> dump,
       Value<String?> linkedinContent,
       Value<String?> twitterContent,
+      Value<String?> linkedinFirstComment,
+      Value<String?> twitterFirstComment,
+      Value<bool> linkInFirstComment,
       Value<String?> embedding,
+      Value<String?> postBaseTagsEmbedding,
       Value<String?> categoryId,
       Value<String> linksJson,
       Value<String> postBaseTagsJson,
       Value<String> categoryBasePublishTagsJson,
       Value<String> trendsBasePublishTagsJson,
+      Value<String> userAddedTrendTagsJson,
       Value<String> mediaIdsJson,
       Value<String> selectedPlatformsJson,
       Value<String> publishedPlatformsJson,
@@ -3901,12 +4829,17 @@ typedef $$PostsTableUpdateCompanionBuilder =
       Value<String> dump,
       Value<String?> linkedinContent,
       Value<String?> twitterContent,
+      Value<String?> linkedinFirstComment,
+      Value<String?> twitterFirstComment,
+      Value<bool> linkInFirstComment,
       Value<String?> embedding,
+      Value<String?> postBaseTagsEmbedding,
       Value<String?> categoryId,
       Value<String> linksJson,
       Value<String> postBaseTagsJson,
       Value<String> categoryBasePublishTagsJson,
       Value<String> trendsBasePublishTagsJson,
+      Value<String> userAddedTrendTagsJson,
       Value<String> mediaIdsJson,
       Value<String> selectedPlatformsJson,
       Value<String> publishedPlatformsJson,
@@ -3946,8 +4879,28 @@ class $$PostsTableFilterComposer extends Composer<_$AppDatabase, $PostsTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get linkedinFirstComment => $composableBuilder(
+    column: $table.linkedinFirstComment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get twitterFirstComment => $composableBuilder(
+    column: $table.twitterFirstComment,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get linkInFirstComment => $composableBuilder(
+    column: $table.linkInFirstComment,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get embedding => $composableBuilder(
     column: $table.embedding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postBaseTagsEmbedding => $composableBuilder(
+    column: $table.postBaseTagsEmbedding,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3973,6 +4926,11 @@ class $$PostsTableFilterComposer extends Composer<_$AppDatabase, $PostsTable> {
 
   ColumnFilters<String> get trendsBasePublishTagsJson => $composableBuilder(
     column: $table.trendsBasePublishTagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userAddedTrendTagsJson => $composableBuilder(
+    column: $table.userAddedTrendTagsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4046,8 +5004,28 @@ class $$PostsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get linkedinFirstComment => $composableBuilder(
+    column: $table.linkedinFirstComment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get twitterFirstComment => $composableBuilder(
+    column: $table.twitterFirstComment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get linkInFirstComment => $composableBuilder(
+    column: $table.linkInFirstComment,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get embedding => $composableBuilder(
     column: $table.embedding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postBaseTagsEmbedding => $composableBuilder(
+    column: $table.postBaseTagsEmbedding,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4073,6 +5051,11 @@ class $$PostsTableOrderingComposer
 
   ColumnOrderings<String> get trendsBasePublishTagsJson => $composableBuilder(
     column: $table.trendsBasePublishTagsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userAddedTrendTagsJson => $composableBuilder(
+    column: $table.userAddedTrendTagsJson,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -4142,8 +5125,28 @@ class $$PostsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get linkedinFirstComment => $composableBuilder(
+    column: $table.linkedinFirstComment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get twitterFirstComment => $composableBuilder(
+    column: $table.twitterFirstComment,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get linkInFirstComment => $composableBuilder(
+    column: $table.linkInFirstComment,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get embedding =>
       $composableBuilder(column: $table.embedding, builder: (column) => column);
+
+  GeneratedColumn<String> get postBaseTagsEmbedding => $composableBuilder(
+    column: $table.postBaseTagsEmbedding,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get categoryId => $composableBuilder(
     column: $table.categoryId,
@@ -4165,6 +5168,11 @@ class $$PostsTableAnnotationComposer
 
   GeneratedColumn<String> get trendsBasePublishTagsJson => $composableBuilder(
     column: $table.trendsBasePublishTagsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get userAddedTrendTagsJson => $composableBuilder(
+    column: $table.userAddedTrendTagsJson,
     builder: (column) => column,
   );
 
@@ -4233,13 +5241,18 @@ class $$PostsTableTableManager
                 Value<String> dump = const Value.absent(),
                 Value<String?> linkedinContent = const Value.absent(),
                 Value<String?> twitterContent = const Value.absent(),
+                Value<String?> linkedinFirstComment = const Value.absent(),
+                Value<String?> twitterFirstComment = const Value.absent(),
+                Value<bool> linkInFirstComment = const Value.absent(),
                 Value<String?> embedding = const Value.absent(),
+                Value<String?> postBaseTagsEmbedding = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String> linksJson = const Value.absent(),
                 Value<String> postBaseTagsJson = const Value.absent(),
                 Value<String> categoryBasePublishTagsJson =
                     const Value.absent(),
                 Value<String> trendsBasePublishTagsJson = const Value.absent(),
+                Value<String> userAddedTrendTagsJson = const Value.absent(),
                 Value<String> mediaIdsJson = const Value.absent(),
                 Value<String> selectedPlatformsJson = const Value.absent(),
                 Value<String> publishedPlatformsJson = const Value.absent(),
@@ -4254,12 +5267,17 @@ class $$PostsTableTableManager
                 dump: dump,
                 linkedinContent: linkedinContent,
                 twitterContent: twitterContent,
+                linkedinFirstComment: linkedinFirstComment,
+                twitterFirstComment: twitterFirstComment,
+                linkInFirstComment: linkInFirstComment,
                 embedding: embedding,
+                postBaseTagsEmbedding: postBaseTagsEmbedding,
                 categoryId: categoryId,
                 linksJson: linksJson,
                 postBaseTagsJson: postBaseTagsJson,
                 categoryBasePublishTagsJson: categoryBasePublishTagsJson,
                 trendsBasePublishTagsJson: trendsBasePublishTagsJson,
+                userAddedTrendTagsJson: userAddedTrendTagsJson,
                 mediaIdsJson: mediaIdsJson,
                 selectedPlatformsJson: selectedPlatformsJson,
                 publishedPlatformsJson: publishedPlatformsJson,
@@ -4276,13 +5294,18 @@ class $$PostsTableTableManager
                 Value<String> dump = const Value.absent(),
                 Value<String?> linkedinContent = const Value.absent(),
                 Value<String?> twitterContent = const Value.absent(),
+                Value<String?> linkedinFirstComment = const Value.absent(),
+                Value<String?> twitterFirstComment = const Value.absent(),
+                Value<bool> linkInFirstComment = const Value.absent(),
                 Value<String?> embedding = const Value.absent(),
+                Value<String?> postBaseTagsEmbedding = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String> linksJson = const Value.absent(),
                 Value<String> postBaseTagsJson = const Value.absent(),
                 Value<String> categoryBasePublishTagsJson =
                     const Value.absent(),
                 Value<String> trendsBasePublishTagsJson = const Value.absent(),
+                Value<String> userAddedTrendTagsJson = const Value.absent(),
                 Value<String> mediaIdsJson = const Value.absent(),
                 Value<String> selectedPlatformsJson = const Value.absent(),
                 Value<String> publishedPlatformsJson = const Value.absent(),
@@ -4297,12 +5320,17 @@ class $$PostsTableTableManager
                 dump: dump,
                 linkedinContent: linkedinContent,
                 twitterContent: twitterContent,
+                linkedinFirstComment: linkedinFirstComment,
+                twitterFirstComment: twitterFirstComment,
+                linkInFirstComment: linkInFirstComment,
                 embedding: embedding,
+                postBaseTagsEmbedding: postBaseTagsEmbedding,
                 categoryId: categoryId,
                 linksJson: linksJson,
                 postBaseTagsJson: postBaseTagsJson,
                 categoryBasePublishTagsJson: categoryBasePublishTagsJson,
                 trendsBasePublishTagsJson: trendsBasePublishTagsJson,
+                userAddedTrendTagsJson: userAddedTrendTagsJson,
                 mediaIdsJson: mediaIdsJson,
                 selectedPlatformsJson: selectedPlatformsJson,
                 publishedPlatformsJson: publishedPlatformsJson,
@@ -4529,6 +5557,16 @@ typedef $$SettingsTableCreateCompanionBuilder =
       Value<String?> xClientId,
       Value<String?> xClientSecret,
       Value<String> themeMode,
+      Value<bool> copyToLinkedin,
+      Value<bool> copyToX,
+      Value<int> trendFetchCount,
+      Value<int> trendTagsPerPost,
+      Value<String> postTagMode,
+      Value<int> postTagMin,
+      Value<int> postTagMax,
+      Value<int> postTagExact,
+      Value<bool> dumpTrendingTags,
+      Value<String> tagFormat,
       Value<int> dbSchemaVersion,
     });
 typedef $$SettingsTableUpdateCompanionBuilder =
@@ -4547,6 +5585,16 @@ typedef $$SettingsTableUpdateCompanionBuilder =
       Value<String?> xClientId,
       Value<String?> xClientSecret,
       Value<String> themeMode,
+      Value<bool> copyToLinkedin,
+      Value<bool> copyToX,
+      Value<int> trendFetchCount,
+      Value<int> trendTagsPerPost,
+      Value<String> postTagMode,
+      Value<int> postTagMin,
+      Value<int> postTagMax,
+      Value<int> postTagExact,
+      Value<bool> dumpTrendingTags,
+      Value<String> tagFormat,
       Value<int> dbSchemaVersion,
     });
 
@@ -4626,6 +5674,56 @@ class $$SettingsTableFilterComposer
 
   ColumnFilters<String> get themeMode => $composableBuilder(
     column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get copyToLinkedin => $composableBuilder(
+    column: $table.copyToLinkedin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get copyToX => $composableBuilder(
+    column: $table.copyToX,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trendFetchCount => $composableBuilder(
+    column: $table.trendFetchCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trendTagsPerPost => $composableBuilder(
+    column: $table.trendTagsPerPost,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get postTagMode => $composableBuilder(
+    column: $table.postTagMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get postTagMin => $composableBuilder(
+    column: $table.postTagMin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get postTagMax => $composableBuilder(
+    column: $table.postTagMax,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get postTagExact => $composableBuilder(
+    column: $table.postTagExact,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get dumpTrendingTags => $composableBuilder(
+    column: $table.dumpTrendingTags,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tagFormat => $composableBuilder(
+    column: $table.tagFormat,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4714,6 +5812,56 @@ class $$SettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get copyToLinkedin => $composableBuilder(
+    column: $table.copyToLinkedin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get copyToX => $composableBuilder(
+    column: $table.copyToX,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trendFetchCount => $composableBuilder(
+    column: $table.trendFetchCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trendTagsPerPost => $composableBuilder(
+    column: $table.trendTagsPerPost,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get postTagMode => $composableBuilder(
+    column: $table.postTagMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get postTagMin => $composableBuilder(
+    column: $table.postTagMin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get postTagMax => $composableBuilder(
+    column: $table.postTagMax,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get postTagExact => $composableBuilder(
+    column: $table.postTagExact,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get dumpTrendingTags => $composableBuilder(
+    column: $table.dumpTrendingTags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tagFormat => $composableBuilder(
+    column: $table.tagFormat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get dbSchemaVersion => $composableBuilder(
     column: $table.dbSchemaVersion,
     builder: (column) => ColumnOrderings(column),
@@ -4791,6 +5939,52 @@ class $$SettingsTableAnnotationComposer
   GeneratedColumn<String> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
 
+  GeneratedColumn<bool> get copyToLinkedin => $composableBuilder(
+    column: $table.copyToLinkedin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get copyToX =>
+      $composableBuilder(column: $table.copyToX, builder: (column) => column);
+
+  GeneratedColumn<int> get trendFetchCount => $composableBuilder(
+    column: $table.trendFetchCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get trendTagsPerPost => $composableBuilder(
+    column: $table.trendTagsPerPost,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get postTagMode => $composableBuilder(
+    column: $table.postTagMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get postTagMin => $composableBuilder(
+    column: $table.postTagMin,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get postTagMax => $composableBuilder(
+    column: $table.postTagMax,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get postTagExact => $composableBuilder(
+    column: $table.postTagExact,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get dumpTrendingTags => $composableBuilder(
+    column: $table.dumpTrendingTags,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tagFormat =>
+      $composableBuilder(column: $table.tagFormat, builder: (column) => column);
+
   GeneratedColumn<int> get dbSchemaVersion => $composableBuilder(
     column: $table.dbSchemaVersion,
     builder: (column) => column,
@@ -4839,6 +6033,16 @@ class $$SettingsTableTableManager
                 Value<String?> xClientId = const Value.absent(),
                 Value<String?> xClientSecret = const Value.absent(),
                 Value<String> themeMode = const Value.absent(),
+                Value<bool> copyToLinkedin = const Value.absent(),
+                Value<bool> copyToX = const Value.absent(),
+                Value<int> trendFetchCount = const Value.absent(),
+                Value<int> trendTagsPerPost = const Value.absent(),
+                Value<String> postTagMode = const Value.absent(),
+                Value<int> postTagMin = const Value.absent(),
+                Value<int> postTagMax = const Value.absent(),
+                Value<int> postTagExact = const Value.absent(),
+                Value<bool> dumpTrendingTags = const Value.absent(),
+                Value<String> tagFormat = const Value.absent(),
                 Value<int> dbSchemaVersion = const Value.absent(),
               }) => SettingsCompanion(
                 rowId: rowId,
@@ -4855,6 +6059,16 @@ class $$SettingsTableTableManager
                 xClientId: xClientId,
                 xClientSecret: xClientSecret,
                 themeMode: themeMode,
+                copyToLinkedin: copyToLinkedin,
+                copyToX: copyToX,
+                trendFetchCount: trendFetchCount,
+                trendTagsPerPost: trendTagsPerPost,
+                postTagMode: postTagMode,
+                postTagMin: postTagMin,
+                postTagMax: postTagMax,
+                postTagExact: postTagExact,
+                dumpTrendingTags: dumpTrendingTags,
+                tagFormat: tagFormat,
                 dbSchemaVersion: dbSchemaVersion,
               ),
           createCompanionCallback:
@@ -4873,6 +6087,16 @@ class $$SettingsTableTableManager
                 Value<String?> xClientId = const Value.absent(),
                 Value<String?> xClientSecret = const Value.absent(),
                 Value<String> themeMode = const Value.absent(),
+                Value<bool> copyToLinkedin = const Value.absent(),
+                Value<bool> copyToX = const Value.absent(),
+                Value<int> trendFetchCount = const Value.absent(),
+                Value<int> trendTagsPerPost = const Value.absent(),
+                Value<String> postTagMode = const Value.absent(),
+                Value<int> postTagMin = const Value.absent(),
+                Value<int> postTagMax = const Value.absent(),
+                Value<int> postTagExact = const Value.absent(),
+                Value<bool> dumpTrendingTags = const Value.absent(),
+                Value<String> tagFormat = const Value.absent(),
                 Value<int> dbSchemaVersion = const Value.absent(),
               }) => SettingsCompanion.insert(
                 rowId: rowId,
@@ -4889,6 +6113,16 @@ class $$SettingsTableTableManager
                 xClientId: xClientId,
                 xClientSecret: xClientSecret,
                 themeMode: themeMode,
+                copyToLinkedin: copyToLinkedin,
+                copyToX: copyToX,
+                trendFetchCount: trendFetchCount,
+                trendTagsPerPost: trendTagsPerPost,
+                postTagMode: postTagMode,
+                postTagMin: postTagMin,
+                postTagMax: postTagMax,
+                postTagExact: postTagExact,
+                dumpTrendingTags: dumpTrendingTags,
+                tagFormat: tagFormat,
                 dbSchemaVersion: dbSchemaVersion,
               ),
           withReferenceMapper: (p0) => p0
@@ -5479,6 +6713,8 @@ typedef $$TrendingsTableCreateCompanionBuilder =
       Value<String> eachEmbeddingJson,
       Value<String> platform,
       Value<String?> fetchError,
+      Value<bool> geminiFilterSuccess,
+      Value<String?> rawTrendingJson,
       Value<int> rowid,
     });
 typedef $$TrendingsTableUpdateCompanionBuilder =
@@ -5491,6 +6727,8 @@ typedef $$TrendingsTableUpdateCompanionBuilder =
       Value<String> eachEmbeddingJson,
       Value<String> platform,
       Value<String?> fetchError,
+      Value<bool> geminiFilterSuccess,
+      Value<String?> rawTrendingJson,
       Value<int> rowid,
     });
 
@@ -5540,6 +6778,16 @@ class $$TrendingsTableFilterComposer
 
   ColumnFilters<String> get fetchError => $composableBuilder(
     column: $table.fetchError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get geminiFilterSuccess => $composableBuilder(
+    column: $table.geminiFilterSuccess,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawTrendingJson => $composableBuilder(
+    column: $table.rawTrendingJson,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5592,6 +6840,16 @@ class $$TrendingsTableOrderingComposer
     column: $table.fetchError,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get geminiFilterSuccess => $composableBuilder(
+    column: $table.geminiFilterSuccess,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawTrendingJson => $composableBuilder(
+    column: $table.rawTrendingJson,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TrendingsTableAnnotationComposer
@@ -5636,6 +6894,16 @@ class $$TrendingsTableAnnotationComposer
     column: $table.fetchError,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get geminiFilterSuccess => $composableBuilder(
+    column: $table.geminiFilterSuccess,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rawTrendingJson => $composableBuilder(
+    column: $table.rawTrendingJson,
+    builder: (column) => column,
+  );
 }
 
 class $$TrendingsTableTableManager
@@ -5674,6 +6942,8 @@ class $$TrendingsTableTableManager
                 Value<String> eachEmbeddingJson = const Value.absent(),
                 Value<String> platform = const Value.absent(),
                 Value<String?> fetchError = const Value.absent(),
+                Value<bool> geminiFilterSuccess = const Value.absent(),
+                Value<String?> rawTrendingJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TrendingsCompanion(
                 id: id,
@@ -5684,6 +6954,8 @@ class $$TrendingsTableTableManager
                 eachEmbeddingJson: eachEmbeddingJson,
                 platform: platform,
                 fetchError: fetchError,
+                geminiFilterSuccess: geminiFilterSuccess,
+                rawTrendingJson: rawTrendingJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5696,6 +6968,8 @@ class $$TrendingsTableTableManager
                 Value<String> eachEmbeddingJson = const Value.absent(),
                 Value<String> platform = const Value.absent(),
                 Value<String?> fetchError = const Value.absent(),
+                Value<bool> geminiFilterSuccess = const Value.absent(),
+                Value<String?> rawTrendingJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TrendingsCompanion.insert(
                 id: id,
@@ -5706,6 +6980,8 @@ class $$TrendingsTableTableManager
                 eachEmbeddingJson: eachEmbeddingJson,
                 platform: platform,
                 fetchError: fetchError,
+                geminiFilterSuccess: geminiFilterSuccess,
+                rawTrendingJson: rawTrendingJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

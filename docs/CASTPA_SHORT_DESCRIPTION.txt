@@ -1,0 +1,49 @@
+CastPA — AI-Powered Cross-Platform Social Media Content Engine
+
+A local-first, cross-platform Flutter application (currently used on macOS and Android) that transforms raw ideas — typed or voice-recorded — into polished, platform-optimized social media content for LinkedIn and X (Twitter).
+
+The app is just a vessel; the sync folder is the brain. Everything — the SQLite database, media files, backups — lives in a single folder. When that folder is synced via Google Drive, Dropbox, iCloud, or OneDrive, any device running CastPA instantly has the full state. No server, no account, no cloud backend.
+
+The app runs 2 on-device ML models: MiniLM-L6-v2 for 384-dimensional semantic embeddings and Whisper Base for voice-to-text transcription. Gemini 2.5 Flash Lite handles content polishing — transforming raw dumps into LinkedIn posts (900-1200 chars with a 210-char hook) and X posts (220 chars), along with generating 3-10 content-specific base tags per post.
+
+Weekly trending topics are fetched from dev.to, then each topic is individually embedded on-device (384-dim). Each post's base tags are also individually embedded. A custom RAG pipeline runs cosine similarity between every tag embedding and every trending topic embedding, adds a keyword match bonus, and selects the top-5 most relevant trending tags for the post. Each submitted post is also fully embedded so the system can identify the most trend-aligned posts for a given week.
+
+The tag system has 3 tiers: AI-generated post base tags (content-specific), RAG-selected trending tags (matched from dev.to weekly pool), and user-manually-added trend tags — all merged and deduplicated at publish time.
+
+Users can publish directly from the app via OAuth 2.0 — LinkedIn (with image upload via asset registration + binary PUT) and X/Twitter (PKCE flow). Or they can use the copy-to-clipboard flow, where the polished content and all hashtags are copied together, and media files are placed in a share/ folder with sequential names (1.jpg, 2.png) for the user to attach manually on the platform.
+
+Multi-device sync works through file-based DB sharing — a file watcher detects external changes, creates timestamped backups only if there's a conflict risk (7-minute activity window), and triggers a Riverpod epoch counter that rebuilds all UI providers with fresh data. Schema migrations use a two-tier system: structural (runs on every device, safe-alters to handle "column already exists") and logical (runs once across all devices, tracked in the shared DB).
+
+Tech Stack: Flutter (Dart) | Drift ORM (SQLite, 7 tables, 17 migrations) | Riverpod | TFLite (MiniLM-L6-v2) | Whisper Base | Gemini 2.5 Flash Lite | OAuth 2.0 + PKCE | GoRouter | dev.to API | LinkedIn v2 API | Twitter v2 API
+
+Quantitative:
+- 73 Dart files | 23+ production dependencies | 7+ dev dependencies
+- 7 database tables | 20 columns in Posts table alone | 21 settings fields | 17 structural migrations + 1 logical migration
+- 2 on-device ML models (MiniLM-L6-v2 + Whisper Base ~145 MB)
+- 384-dimensional L2-normalized embeddings (local MiniLM) | 768-dim embeddings (Gemini text-embedding-004 fallback)
+- 30,522-token BERT WordPiece vocabulary | 128 max sequence length
+- 320-char chunk size | 240-char stride (75% overlap) for long-text embedding
+- 5 hook patterns (contrarian, curiosity, fear, stat, aspiration)
+- 3 content structures (PAS, BAB, Contrarian)
+- 3-10 AI-generated tags per post (configurable range/exact mode)
+- 3-tier tag system (post base + RAG trending + user-added)
+- Top-5 RAG trending tag selection per post (configurable, default 5)
+- 7 dev.to articles fetched per week for trending (configurable, default 7)
+- 3 trending data sources (dev.to primary, Hacker News secondary, Gemini tertiary)
+- 5 external API integrations (Gemini, LinkedIn v2, Twitter v2, dev.to, HN Algolia)
+- 2 OAuth flows (LinkedIn Authorization Code + X PKCE with SHA256 code challenge)
+- 32-byte code verifier + 16-byte state for PKCE
+- LinkedIn: 900-1200 char posts | 210-char hook | 3-step image upload (register + PUT binary + attach URN)
+- X/Twitter: 220 char limit
+- Temperature: 0.7 (content generation) | 0.4 (trend extraction)
+- Max output tokens: 2,048 per Gemini call
+- 800ms debounced auto-save | 7-minute sync conflict window | max 10 timestamped backups
+- Audio: WAV format | 16 kHz sample rate | 1 channel (mono)
+- 4-second macOS recording timeout + 10-second file-ready polling workaround
+- 7 image formats (jpg, jpeg, png, gif, webp, heic, heif) | 6 video formats (mp4, mov, avi, mkv, webm, m4v)
+- 10+ GoRouter routes | 9 screens | 14+ widgets | 8 services | 7 repositories | 8 domain entities
+- 5 Riverpod provider layers (singletons → computed → repository → async data → edit state)
+- 4 post statuses (draft → pending → partial_published → published) + soft-delete
+- 5 target platforms supported in codebase (Android, iOS, macOS, Windows, Linux)
+- 2 databases (AppDatabase synced + LocalDatabase device-only)
+- 0 cloud servers required — fully local-first architecture

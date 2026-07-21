@@ -9,6 +9,7 @@ import 'package:castpa/data/services/media_file_service.dart';
 import 'package:castpa/domain/entities/enums.dart';
 import 'package:castpa/domain/entities/post.dart';
 import 'package:castpa/domain/entities/publish_record.dart';
+import 'package:castpa/core/utils/tag_utils.dart';
 
 enum PublishStatus { idle, publishing, success, error }
 
@@ -35,6 +36,12 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
     final config = ref.read(bootstrapConfigProvider).valueOrNull;
     final deviceId = config?.deviceId ?? '';
 
+    if (post.categoryId == null || post.categoryId!.isEmpty) {
+      final s = const PublishState(status: PublishStatus.error, error: 'Please select a category before publishing.');
+      state = s;
+      return s;
+    }
+
     final targets = post.remainingTargets;
     if (targets.isEmpty) {
       final s = const PublishState(status: PublishStatus.error, error: 'No remaining targets.');
@@ -44,11 +51,11 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
 
     state = const PublishState(status: PublishStatus.publishing);
 
+    final tagFormat = settings?.tagFormat ?? 'camelCase';
     final allTags = [
       ...post.postBaseTags,
-      ...post.categoryBasePublishTags,
       ...post.trendsBasePublishTags,
-    ].map((t) => t.startsWith('#') ? t : '#$t').toSet().toList();
+    ].map((t) => toHashtag(t, format: tagFormat)).toSet().toList();
 
     String appendTags(String? content) {
       if (content == null || content.isEmpty) return content ?? '';
@@ -56,7 +63,10 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
       return '$content\n\n${allTags.join(' ')}';
     }
 
-    // Resolve mediaIds → absolute file paths (images only)
+    // Resolve mediaIds → absolute file paths (images only).
+    // TODO: add video upload support for both LinkedIn and X —
+    // LinkedIn requires a separate video asset registration flow (different from image URN upload),
+    // X requires chunked media upload via POST media/upload with INIT/APPEND/FINALIZE commands.
     final mediaFileService = ref.read(mediaFileServiceProvider);
     final mediaItems = await ref.read(mediaRepositoryProvider).getMediaByIds(post.mediaIds);
     final mediaFilePaths = mediaItems
@@ -125,6 +135,50 @@ class PublishNotifier extends AutoDisposeNotifier<PublishState> {
     );
     state = newState;
     return newState;
+  }
+
+  /// Marks a single platform as published without calling the API.
+  /// Used by the "Copy to Platform" feature where the user posts manually.
+  Future<void> markAsPublishedManually(Post post, Platform platform) async {
+    final config = ref.read(bootstrapConfigProvider).valueOrNull;
+    final deviceId = config?.deviceId ?? '';
+
+    final publishRepo = ref.read(publishRepositoryProvider);
+    final postRepo = ref.read(postRepositoryProvider);
+
+    await publishRepo.createRecord(PublishRecord(
+      id: _uuid.v4(),
+      postId: post.id,
+      publishedDate: DateTime.now(),
+      platforms: [platform],
+      deviceId: deviceId,
+    ));
+
+    final updatedPublished = [...post.publishedPlatforms, platform];
+    final isFullyPublished = post.selectedPlatforms.every((p) => updatedPublished.contains(p));
+
+    final newStatus = isFullyPublished
+        ? PostStatus.published
+        : updatedPublished.isNotEmpty
+            ? PostStatus.partialPublished
+            : post.status;
+
+    final updatedPost = post.copyWith(
+      publishedPlatforms: updatedPublished,
+      status: newStatus,
+      updatedAt: DateTime.now(),
+    );
+
+    await postRepo.updatePost(updatedPost);
+
+    for (final s in PostStatus.values) {
+      ref.invalidate(postListProvider(s));
+    }
+
+    state = PublishState(
+      status: PublishStatus.success,
+      succeededPlatforms: [platform],
+    );
   }
 }
 

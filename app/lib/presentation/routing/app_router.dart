@@ -10,6 +10,7 @@ import 'package:castpa/presentation/screens/post/create_post_screen.dart';
 import 'package:castpa/presentation/screens/post/post_detail_screen.dart';
 import 'package:castpa/presentation/screens/queue/queue_screen.dart';
 import 'package:castpa/presentation/screens/onboarding/folder_setup_screen.dart';
+import 'package:castpa/presentation/screens/settings/folder_browser_screen.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -113,6 +114,16 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/db-inspector-local',
       builder: (ctx, state) => const LocalDeviceScreen(),
+    ),
+    GoRoute(
+      path: '/folder-browser',
+      builder: (ctx, state) {
+        final extra = state.extra as Map<String, String>;
+        return FolderBrowserScreen(
+          label: extra['label']!,
+          folderPath: extra['path']!,
+        );
+      },
     ),
   ],
 );

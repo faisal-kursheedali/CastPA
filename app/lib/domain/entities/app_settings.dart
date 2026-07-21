@@ -12,6 +12,16 @@ class AppSettings {
   final String? genModel;
   final String? embedModel;
   final String themeMode;
+  final bool copyToLinkedin;
+  final bool copyToX;
+  final int trendFetchCount;
+  final int trendTagsPerPost;
+  final String postTagMode;
+  final int postTagMin;
+  final int postTagMax;
+  final int postTagExact;
+  final bool dumpTrendingTags;
+  final String tagFormat;
 
   const AppSettings({
     this.linkedinAuthToken,
@@ -27,6 +37,16 @@ class AppSettings {
     this.genModel,
     this.embedModel,
     this.themeMode = 'system',
+    this.copyToLinkedin = false,
+    this.copyToX = false,
+    this.trendFetchCount = 7,
+    this.trendTagsPerPost = 5,
+    this.postTagMode = 'range',
+    this.postTagMin = 3,
+    this.postTagMax = 10,
+    this.postTagExact = 5,
+    this.dumpTrendingTags = true,
+    this.tagFormat = 'camelCase',
   });
 
   bool get isLinkedInConnected => linkedinAuthToken != null && linkedinAuthToken!.isNotEmpty;
@@ -55,6 +75,16 @@ class AppSettings {
     String? genModel,
     String? embedModel,
     String? themeMode,
+    bool? copyToLinkedin,
+    bool? copyToX,
+    int? trendFetchCount,
+    int? trendTagsPerPost,
+    String? postTagMode,
+    int? postTagMin,
+    int? postTagMax,
+    int? postTagExact,
+    bool? dumpTrendingTags,
+    String? tagFormat,
     bool clearLinkedin = false,
     bool clearX = false,
   }) {
@@ -72,6 +102,16 @@ class AppSettings {
       genModel: genModel ?? this.genModel,
       embedModel: embedModel ?? this.embedModel,
       themeMode: themeMode ?? this.themeMode,
+      copyToLinkedin: copyToLinkedin ?? this.copyToLinkedin,
+      copyToX: copyToX ?? this.copyToX,
+      trendFetchCount: trendFetchCount ?? this.trendFetchCount,
+      trendTagsPerPost: trendTagsPerPost ?? this.trendTagsPerPost,
+      postTagMode: postTagMode ?? this.postTagMode,
+      postTagMin: postTagMin ?? this.postTagMin,
+      postTagMax: postTagMax ?? this.postTagMax,
+      postTagExact: postTagExact ?? this.postTagExact,
+      dumpTrendingTags: dumpTrendingTags ?? this.dumpTrendingTags,
+      tagFormat: tagFormat ?? this.tagFormat,
     );
   }
 }
